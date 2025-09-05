@@ -9,8 +9,7 @@ namespace Banking.Domain.Interfaces
 {
     public interface ICustomerRepository
     {
-        Task<Customer> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default);
-        Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default);
-        Task UpdateCustomerAsync(Customer customer, CancellationToken cancellationToken = default);
+        Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default);
+        Task<Customer> AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default);
     }
 }

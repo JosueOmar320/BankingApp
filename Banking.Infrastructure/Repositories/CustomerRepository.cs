@@ -1,5 +1,7 @@
 ﻿using Banking.Domain.Entities;
 using Banking.Domain.Interfaces;
+using Banking.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,19 +12,19 @@ namespace Banking.Infrastructure.Repositories
 {
     public class CustomerRepository : ICustomerRepository
     {
-        public Task AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default)
+        private readonly BankingDbContext _context;
+        public CustomerRepository(BankingDbContext context)
         {
-            throw new NotImplementedException();
+            _context = context;
+        }
+        public async Task<Customer> AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default)
+        {
+           await _context.Customers.AddAsync(customer, cancellationToken);  
+           await _context.SaveChangesAsync(cancellationToken);
+           return customer;
         }
 
-        public Task<Customer> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task UpdateCustomerAsync(Customer customer, CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
+        public Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
+            => _context.Customers.FirstOrDefaultAsync(x => x.CustomerId.Equals(customerId), cancellationToken);
     }
 }

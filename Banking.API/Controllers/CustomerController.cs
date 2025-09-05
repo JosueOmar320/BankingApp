@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Banking.Application.Dtos;
+using Banking.Application.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Banking.API.Controllers
@@ -7,6 +9,28 @@ namespace Banking.API.Controllers
     [ApiController]
     public class CustomerController : ControllerBase
     {
-       
+        private readonly ICustomerService _customerService;
+        public CustomerController(ICustomerService customerService)
+        {
+            _customerService = customerService;
+        }
+
+        /// <summary>
+        /// Create a new customer.
+        /// </summary>
+        /// <param name="customer">DTO with the client's data to be created</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        [HttpPost]
+        [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
+        public async Task<IActionResult> CreateCustomer(CreateCustomerDto customer, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+
+            var result = await _customerService.AddCustomerAsync(customer, cancellationToken);
+
+            return Created("", result);
+        }
     }
 }

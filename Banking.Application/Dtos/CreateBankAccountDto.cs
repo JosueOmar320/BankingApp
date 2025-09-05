@@ -1,4 +1,6 @@
-﻿namespace Banking.Application.Dtos
+﻿using Banking.Domain.Entities;
+
+namespace Banking.Application.Dtos
 {
     public class CreateBankAccountDto
     {

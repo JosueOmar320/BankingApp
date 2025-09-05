@@ -1,3 +1,5 @@
+using Banking.Application;
+using Banking.Infrastructure;
 using Banking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +14,12 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<BankingDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+//Dependency Injection for Infrastructure
+builder.Services.AddInfrastructureServices();
+
+//Dependy Injection for Application
+builder.Services.AddApplicationServices();
 
 var app = builder.Build();
 

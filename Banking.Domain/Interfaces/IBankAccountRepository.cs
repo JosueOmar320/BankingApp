@@ -9,9 +9,8 @@ namespace Banking.Domain.Interfaces
 {
     public interface IBankAccountRepository
     {
-        Task<List<BankAccount>> GetAllBankAccountsAsync();
-        Task<BankAccount> GetBankAccountByIdAsync(Guid accountId);
-        Task AddBankAccountAsync(BankAccount account);
-        Task UpdateBankAccountAsync(BankAccount account);
+        Task<BankAccount> GetBankAccountByIdAsync(int accountId, CancellationToken cancellationToken = default);
+        Task AddBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
+        Task UpdateBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
     }
 }

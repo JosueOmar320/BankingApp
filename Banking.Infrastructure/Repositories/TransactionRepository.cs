@@ -16,10 +16,11 @@ namespace Banking.Infrastructure.Repositories
         {
             _context = context;
         }
-        public async Task AddAsync(Transaction transaction, CancellationToken cancellationToken = default)
+        public async Task<Transaction> AddAsync(Transaction transaction, CancellationToken cancellationToken = default)
         {
             await _context.Transactions.AddAsync(transaction, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+            return transaction;
         }
     }
 }

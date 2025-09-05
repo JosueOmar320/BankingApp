@@ -37,6 +37,9 @@ namespace Banking.Application.Services
         public Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
             => _bankAccountRepository.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken);
 
+        public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
+            => _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken);
+
         private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken = default)
         {
             string accountNumber;

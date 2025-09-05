@@ -10,7 +10,7 @@ namespace Banking.Application.Interfaces
 {
     public interface ITransactionService
     {
-        Task<TransactionResponseDto> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
-        Task<TransactionResponseDto> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
+        Task<TransactionResponseDto?> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
+        Task<TransactionResponseDto?> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Banking.Application.Dtos;
+using Banking.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace Banking.Application.Interfaces
     public interface IBankAccountService
     {
         Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default);
-
+        Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
         Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Banking.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -28,6 +29,9 @@ namespace Banking.Domain.Entities
 
         [Required]
         public required string DocumentNumber { get; set; }
+
+        [Required]
+        public Gender Gender { get; set; }
 
         [Required]
         public decimal MonthlyIncome { get; set; }

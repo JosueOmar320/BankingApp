@@ -22,7 +22,7 @@ namespace Banking.API.Controllers
         /// <param name="bankAccountDto">DTO with the bankAccount's data to be created</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
         [HttpPost("CreateBankAccount")]
-        [ProducesResponseType(typeof(BankAccountDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> CreateBankAccount(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
         {
@@ -39,8 +39,8 @@ namespace Banking.API.Controllers
         /// </summary>
         /// <param name="accountNumber">Customer's Account Number</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
-        [HttpPost("GetBalanceByAccountNumber")]
-        [ProducesResponseType(typeof(BankAccountDto), StatusCodes.Status201Created)]
+        [HttpGet("GetBalanceByAccountNumber")]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> GetBalanceByAccountNumber(string accountNumber, CancellationToken cancellationToken = default)

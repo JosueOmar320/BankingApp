@@ -1,4 +1,7 @@
 ﻿using Banking.Domain.Entities;
+using Banking.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Banking.Application.Dtos
 {
@@ -8,6 +11,10 @@ namespace Banking.Application.Dtos
         public string? LastName { get; set; }
         public DateOnly BirthDate { get; set; }
         public required string DocumentNumber { get; set; }
+
+        [EnumDataType(typeof(Gender))]
+        public Gender Gender { get; set; }
+
         public decimal MonthlyIncome { get; set; }
 
         public Customer ToEntity()
@@ -19,7 +26,8 @@ namespace Banking.Application.Dtos
                 BirthDate = BirthDate,
                 DocumentNumber = DocumentNumber,
                 MonthlyIncome = MonthlyIncome,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Gender = Gender,
             };
         }
     }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Banking.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -21,10 +22,10 @@ namespace Banking.Domain.Entities
         public decimal Amount { get; set; }
 
         [Required]
-        public DateTime TransactionDate { get; set; }
+        public TransactionType TransactionType { get; set; }
 
         [Required]
-        public string? Description { get; set; }
+        public DateTime TransactionDate { get; set; }
 
         [ForeignKey("BankAccountId")]
         public BankAccount? BankAccount { get; set; }

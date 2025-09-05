@@ -9,7 +9,7 @@ namespace Banking.Application.Interfaces
 {
     public interface IBankAccountService
     {
-        Task<BankAccountDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default);
+        Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default);
 
         Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
     }

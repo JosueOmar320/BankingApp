@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Banking.Application.Dtos
 {
-    public class BankAccountDto
+    public class BankAccountResponseDto
     {
         public required string AccountNumber { get; set; }
     }

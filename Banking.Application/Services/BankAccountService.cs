@@ -19,7 +19,7 @@ namespace Banking.Application.Services
             _bankAccountRepository = bankAccountRepository;
         }
 
-        public async Task<BankAccountDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
+        public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
         {
             var account = new BankAccount
             {
@@ -31,7 +31,7 @@ namespace Banking.Application.Services
 
             var result = await _bankAccountRepository.AddBankAccountAsync(account, cancellationToken);
 
-            return new BankAccountDto{ AccountNumber = result.AccountNumber };
+            return new BankAccountResponseDto{ AccountNumber = result.AccountNumber };
         }
 
         public Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)

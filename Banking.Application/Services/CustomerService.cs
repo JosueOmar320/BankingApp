@@ -18,17 +18,18 @@ namespace Banking.Application.Services
             _customerRepository = customerRepository;
         }
 
-        public async Task<CustomerDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
+        public async Task<CustomerResponseDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
         {
             var result = await _customerRepository.AddCustomerAsync(customer.ToEntity(), cancellationToken);
 
-            return new CustomerDto {
+            return new CustomerResponseDto {
                 DocumentNumber = result.DocumentNumber, 
                 FirstName = result.FirstName,
                 LastName = result.LastName, 
                 BirthDate = result.BirthDate, 
                 MonthlyIncome = result.MonthlyIncome ,
-                CustomerId = result.CustomerId
+                CustomerId = result.CustomerId,
+                Gender = result.Gender,
             };
         } 
 

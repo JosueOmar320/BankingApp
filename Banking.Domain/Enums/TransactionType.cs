@@ -9,7 +9,7 @@ namespace Banking.Domain.Enums
     public enum TransactionType
     {
         Deposit,
-        Withdraw,
+        Withdrawal,
         Interest
     }
 }

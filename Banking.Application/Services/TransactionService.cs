@@ -14,17 +14,17 @@ namespace Banking.Application.Services
     public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
-        private readonly IBankAccountRepository _accountRepository;
+        private readonly IBankAccountService _bankAccountService;
 
-        public TransactionService(ITransactionRepository transactionRepository, IBankAccountRepository accountRepository)
+        public TransactionService(ITransactionRepository transactionRepository, IBankAccountService bankAccountService)
         {
             _transactionRepository = transactionRepository;
-            _accountRepository = accountRepository;
+            _bankAccountService = bankAccountService;
         }
 
         public async Task<TransactionResponseDto?> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
         {
-            var account = await _accountRepository.GetByAccountNumberAsync(accountNumber);
+            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
             if(account == null) 
                 return null;
 
@@ -34,12 +34,13 @@ namespace Banking.Application.Services
                 Amount = amount,
                 TransactionType = TransactionType.Deposit,
                 TransactionDate = DateTime.UtcNow,
+                BalanceAfter = account.Balance + amount,
             };
 
-            var result = await _transactionRepository.AddAsync(transaction, cancellationToken);
+            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
 
             account.Balance += amount;
-            var resultAccount = await _accountRepository.UpdateBankAccountAsync(account, cancellationToken);
+            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
 
             return new TransactionResponseDto 
                 { 
@@ -53,7 +54,7 @@ namespace Banking.Application.Services
 
         public async Task<TransactionResponseDto?> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
         {
-            var account = await _accountRepository.GetByAccountNumberAsync(accountNumber);
+            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
             if (account == null)
                 return null;
 
@@ -64,14 +65,15 @@ namespace Banking.Application.Services
             {
                 BankAccountId = account.BankAccountId,
                 Amount = amount,
-                TransactionType = TransactionType.Withdraw,
+                TransactionType = TransactionType.Withdrawal,
                 TransactionDate = DateTime.UtcNow,
+                BalanceAfter = account.Balance - amount,
             };
 
-            var result = await _transactionRepository.AddAsync(transaction, cancellationToken);
+            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
 
             account.Balance -= result.Amount;
-            var resultAccount = await _accountRepository.UpdateBankAccountAsync(account, cancellationToken);
+            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
 
             return new TransactionResponseDto
             {
@@ -84,7 +86,7 @@ namespace Banking.Application.Services
 
         public async Task<TransactionResponseDto?> ApplyInterestAsync(string accountNumber, CancellationToken cancellationToken = default)
         {
-            var account = await _accountRepository.GetByAccountNumberAsync(accountNumber);
+            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
             if (account == null)
                 return null;
             
@@ -94,12 +96,13 @@ namespace Banking.Application.Services
                 Amount = account.Balance * account.InterestRate,
                 TransactionType = TransactionType.Interest,
                 TransactionDate = DateTime.UtcNow,
+                BalanceAfter = account.Balance + (account.Balance * account.InterestRate) ,
             };
 
-            var result = await _transactionRepository.AddAsync(transaction, cancellationToken);
+            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
 
             account.Balance += result.Amount;
-            var resultAccount = await _accountRepository.UpdateBankAccountAsync(account, cancellationToken);
+            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
 
             return new TransactionResponseDto
             {
@@ -107,6 +110,39 @@ namespace Banking.Application.Services
                 TransactionType = result.TransactionType,
                 Amount = result.Amount,
                 BalanceAfter = resultAccount.Balance,
+            };
+        }
+
+        public async Task<AccountTransactionSummaryDto?> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default)
+        {
+            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
+            if (account == null)
+                return null;
+
+            var transactions = await _transactionRepository.GetAllByAccountIdAsync(account.BankAccountId, cancellationToken);
+
+            var transactionSummary = transactions.Select(t => new TransactionSummaryDto
+            {
+                TransactionType = t.TransactionType,
+                Amount = t.Amount,
+                BalanceAfter = t.BalanceAfter,
+                TransactionDate = t.TransactionDate,
+            }).ToList();
+
+            var totalDepositsAndInterest = transactionSummary
+                .Where(t => t.TransactionType == TransactionType.Deposit || t.TransactionType == TransactionType.Interest)
+                .Sum(t => t.Amount);
+
+            var totalWithdrawals = transactionSummary
+                .Where(t => t.TransactionType == TransactionType.Withdrawal)
+                .Sum(t => t.Amount);
+
+            return new AccountTransactionSummaryDto
+            {
+                AccountNumber = accountNumber,
+                StartingBalance = account.Balance + totalWithdrawals - totalDepositsAndInterest,
+                Transactions = transactionSummary,
+                FinalBalance = account.Balance,
             };
         }
     }

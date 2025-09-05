@@ -42,7 +42,7 @@ namespace Banking.API.Controllers
         /// <param name="accountNumber">Customer's Account Number</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
         [HttpGet("GetBalanceByAccountNumber")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> GetBalanceByAccountNumber(string accountNumber, CancellationToken cancellationToken = default)
@@ -55,7 +55,7 @@ namespace Banking.API.Controllers
             if(result == null)
                 return NotFound($"Account {accountNumber} not found.");
 
-            return Created("", result);
+            return Ok(result);
         }
 
         /// <summary>
@@ -64,8 +64,9 @@ namespace Banking.API.Controllers
         /// <param name="accountNumber">Customer's Account Number</param>
         /// <param name="amount">Amount to deposit</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>The updated bank account information.</returns>
         [HttpPost("Transactions/Deposit")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> Deposit(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
@@ -78,17 +79,18 @@ namespace Banking.API.Controllers
             if (result == null)
                 return NotFound($"Account {accountNumber} not found.");
 
-            return Created("", result);
+            return Ok(result);
         }
 
         /// <summary>
         /// Withdraw Amount in BankAccount.
         /// </summary>
-        /// <param name="accountNumber">Customer's Account Number</param>
+        /// <param name="accountNumber">The unique account number of the bank account.</param>
         /// <param name="amount">Amount to Withdraw</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>The updated bank account information.</returns>
         [HttpPost("Transactions/Withdraw")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> Withdraw(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
@@ -101,16 +103,17 @@ namespace Banking.API.Controllers
             if (result == null)
                 return NotFound($"Account {accountNumber} not found.");
 
-            return Created("", result);
+            return Ok(result);
         }
 
         /// <summary>
         /// Apply Interest in BankAccount.
         /// </summary>
-        /// <param name="accountNumber">Customer's Account Number</param>
+        /// <param name="accountNumber">The unique account number of the bank account.</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>The updated bank account information.</returns>
         [HttpPost("Transactions/Apply-Interest")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> ApplyInterest(string accountNumber, CancellationToken cancellationToken = default)
@@ -123,7 +126,31 @@ namespace Banking.API.Controllers
             if (result == null)
                 return NotFound($"Account {accountNumber} not found.");
 
-            return Created("", result);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Get the transaction summary of a bank account, including all deposits, withdrawals,
+        /// interests applied, and the final balance.
+        /// </summary>
+        /// <param name="accountNumber">The unique account number of the bank account.</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>A summary of the transactions for the specified account, or 404 if the account does not exist.</returns>
+        [HttpGet("Transactions/Summary")]
+        [ProducesResponseType(typeof(AccountTransactionSummaryDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
+        public async Task<IActionResult> GetAccountTransactionSummary(string accountNumber, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+
+            var result = await _transactionService.GetAccountTransactionSummaryAsync(accountNumber, cancellationToken);
+
+            if (result == null)
+                return NotFound($"Account {accountNumber} not found.");
+
+            return Ok(result);
         }
     }
 }

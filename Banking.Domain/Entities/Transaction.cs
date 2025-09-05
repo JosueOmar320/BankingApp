@@ -26,6 +26,9 @@ namespace Banking.Domain.Entities
 
         [Required]
         public DateTime TransactionDate { get; set; }
+        
+        [Required]
+        public decimal BalanceAfter { get; set; }
 
         [ForeignKey("BankAccountId")]
         public BankAccount? BankAccount { get; set; }

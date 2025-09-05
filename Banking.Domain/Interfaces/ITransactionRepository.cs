@@ -9,6 +9,8 @@ namespace Banking.Domain.Interfaces
 {
     public interface ITransactionRepository
     {
-        Task<Transaction> AddAsync(Transaction transaction, CancellationToken cancellationToken = default);
+        Task<Transaction> AddTransactionAsync(Transaction transaction, CancellationToken cancellationToken = default);
+
+        Task<IEnumerable<Transaction>> GetAllByAccountIdAsync(int bankAccountId, CancellationToken cancellationToken = default);
     }
 }

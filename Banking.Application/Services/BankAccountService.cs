@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Banking.Application.Services
 {
-    public class BankAccountService : IBankAccountService
+    public class BankAccountService : Interfaces.IBankAccountService
     {
         private readonly IBankAccountRepository _bankAccountRepository;
         private readonly decimal _interestRate;

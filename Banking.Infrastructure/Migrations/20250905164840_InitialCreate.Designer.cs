@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Banking.Infrastructure.Migrations
 {
     [DbContext(typeof(BankingDbContext))]
-    [Migration("20250905054835_InitialCreate")]
+    [Migration("20250905164840_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -34,10 +34,6 @@ namespace Banking.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("CustomerId")

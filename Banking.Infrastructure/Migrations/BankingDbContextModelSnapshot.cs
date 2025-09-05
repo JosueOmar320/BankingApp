@@ -33,10 +33,6 @@ namespace Banking.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<int>("CustomerId")
                         .HasColumnType("INTEGER");
 

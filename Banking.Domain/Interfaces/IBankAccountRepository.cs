@@ -9,7 +9,9 @@ namespace Banking.Domain.Interfaces
 {
     public interface IBankAccountRepository
     {
-        Task<BankAccount?> GetBankAccountByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
+        Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
         Task<BankAccount> AddBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
+
+        Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
     }
 }

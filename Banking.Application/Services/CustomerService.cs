@@ -18,7 +18,7 @@ namespace Banking.Application.Services
             _customerRepository = customerRepository;
         }
 
-        public async Task<CustomerDto> AddCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
+        public async Task<CustomerDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
         {
             var result = await _customerRepository.AddCustomerAsync(customer.ToEntity(), cancellationToken);
 

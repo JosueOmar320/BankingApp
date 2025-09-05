@@ -24,9 +24,6 @@ namespace Banking.Domain.Entities
         public decimal Balance { get; set; } 
 
         [Required]
-        public string Currency { get; set; } = "USD";
-
-        [Required]
         public DateTime CreatedAt { get; set; }
 
         [ForeignKey("CustomerId")]

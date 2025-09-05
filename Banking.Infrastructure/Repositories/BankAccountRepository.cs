@@ -25,7 +25,15 @@ namespace Banking.Infrastructure.Repositories
             return account;
         }
 
-        public Task<BankAccount?> GetBankAccountByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
-            => _context.BankAccounts.FirstOrDefaultAsync(b => b.AccountNumber.Equals(accountNumber), cancellationToken);
+        public async Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
+        {
+            var account = await _context.BankAccounts
+                            .FirstOrDefaultAsync(b => b.AccountNumber == accountNumber, cancellationToken);
+
+            return account?.Balance;
+        }
+
+        public Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken)
+            => _context.BankAccounts.AnyAsync(a => a.AccountNumber.Equals(accountNumber), cancellationToken);
     }
 }

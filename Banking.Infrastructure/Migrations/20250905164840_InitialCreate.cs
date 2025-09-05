@@ -38,7 +38,6 @@ namespace Banking.Infrastructure.Migrations
                     AccountNumber = table.Column<string>(type: "TEXT", nullable: false),
                     CustomerId = table.Column<int>(type: "INTEGER", nullable: false),
                     Balance = table.Column<decimal>(type: "TEXT", nullable: false),
-                    Currency = table.Column<string>(type: "TEXT", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>

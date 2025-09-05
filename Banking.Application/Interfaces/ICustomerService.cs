@@ -10,6 +10,6 @@ namespace Banking.Application.Interfaces
 {
     public interface ICustomerService
     {
-        Task<CustomerDto> AddCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default);
+        Task<CustomerDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default);
     }
 }

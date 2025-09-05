@@ -39,6 +39,13 @@ namespace Banking.Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.AccountNumber.Equals(accountNumber), cancellationToken);
         }
 
+        public async Task<BankAccount> UpdateBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default)
+        {
+            _context.BankAccounts.Update(account);
+            await _context.SaveChangesAsync(cancellationToken);
+            return account;
+        }
+
         public Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken)
             => _context.BankAccounts.AnyAsync(a => a.AccountNumber.Equals(accountNumber), cancellationToken);
     }

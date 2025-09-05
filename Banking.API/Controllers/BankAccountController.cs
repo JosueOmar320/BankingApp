@@ -82,7 +82,7 @@ namespace Banking.API.Controllers
         }
 
         /// <summary>
-        /// Deposito Amount in BankAccount.
+        /// Withdraw Amount in BankAccount.
         /// </summary>
         /// <param name="accountNumber">Customer's Account Number</param>
         /// <param name="amount">Amount to Withdraw</param>
@@ -97,6 +97,28 @@ namespace Banking.API.Controllers
                 return StatusCode(StatusCodes.Status499ClientClosedRequest);
 
             var result = await _transactionService.WithdrawAsync(accountNumber, amount, cancellationToken);
+
+            if (result == null)
+                return NotFound($"Account {accountNumber} not found.");
+
+            return Created("", result);
+        }
+
+        /// <summary>
+        /// Apply Interest in BankAccount.
+        /// </summary>
+        /// <param name="accountNumber">Customer's Account Number</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        [HttpPost("Transactions/Apply-Interest")]
+        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
+        public async Task<IActionResult> ApplyInterest(string accountNumber, CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+
+            var result = await _transactionService.ApplyInterestAsync(accountNumber, cancellationToken);
 
             if (result == null)
                 return NotFound($"Account {accountNumber} not found.");

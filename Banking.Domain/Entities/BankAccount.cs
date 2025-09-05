@@ -21,7 +21,10 @@ namespace Banking.Domain.Entities
         public int CustomerId { get; set; }
 
         [Required]
-        public decimal Balance { get; set; } 
+        public decimal Balance { get; set; }
+
+        [Required]
+        public decimal InterestRate { get; set; }
 
         [Required]
         public DateTime CreatedAt { get; set; }

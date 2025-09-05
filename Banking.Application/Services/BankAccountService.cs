@@ -13,10 +13,12 @@ namespace Banking.Application.Services
     public class BankAccountService : IBankAccountService
     {
         private readonly IBankAccountRepository _bankAccountRepository;
+        private readonly decimal _interestRate;
 
         public BankAccountService(IBankAccountRepository bankAccountRepository)
         {
             _bankAccountRepository = bankAccountRepository;
+            _interestRate = 0.10m; // Example interest rate
         }
 
         public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
@@ -26,6 +28,7 @@ namespace Banking.Application.Services
                 CustomerId = bankAccountDto.CustomerId,
                 Balance = bankAccountDto.InitialDeposit,
                 CreatedAt = DateTime.UtcNow,
+                InterestRate = _interestRate,
                 AccountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken)
             };
 
@@ -33,6 +36,9 @@ namespace Banking.Application.Services
 
             return new BankAccountResponseDto{ AccountNumber = result.AccountNumber };
         }
+
+        public Task<BankAccount> UpdateBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default)
+            => _bankAccountRepository.UpdateBankAccountAsync(bankAccount, cancellationToken);
 
         public Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
             => _bankAccountRepository.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken);

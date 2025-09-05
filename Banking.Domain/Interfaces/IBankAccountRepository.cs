@@ -12,6 +12,7 @@ namespace Banking.Domain.Interfaces
         Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
         Task<BankAccount> AddBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
         Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
+        Task<BankAccount> UpdateBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
         Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
     }
 }

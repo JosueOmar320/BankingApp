@@ -27,7 +27,7 @@ namespace Banking.Infrastructure.Repositories
         public async Task<IEnumerable<Transaction>> GetAllByAccountIdAsync(int bankAccountId, CancellationToken cancellationToken = default)
         {
             return await _context.Transactions
-                .Where(t => t.BankAccountId.Equals(bankAccountId))
+                .Where(t => t.BankAccountId == bankAccountId)
                 .OrderBy(t => t.TransactionDate)
                 .ToListAsync(cancellationToken);
         }

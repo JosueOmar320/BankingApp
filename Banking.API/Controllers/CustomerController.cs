@@ -20,8 +20,9 @@ namespace Banking.API.Controllers
         /// </summary>
         /// <param name="customer">DTO with the customer's data to be created</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
-        [HttpPost("CreateCustomer")]
+        [HttpPost]
         [ProducesResponseType(typeof(CustomerResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> CreateCustomer(CreateCustomerDto customer, CancellationToken cancellationToken = default)
         {

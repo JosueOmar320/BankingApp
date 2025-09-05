@@ -12,8 +12,8 @@ namespace Banking.Application.Dtos
         public DateOnly BirthDate { get; set; }
         public required string DocumentNumber { get; set; }
 
-        [EnumDataType(typeof(Gender))]
-        public Gender Gender { get; set; }
+        [RegularExpression("M|F|O", ErrorMessage = "Gender must be M, F, or O.")]
+        public required string Gender { get; set; }
 
         public decimal MonthlyIncome { get; set; }
 
@@ -27,7 +27,7 @@ namespace Banking.Application.Dtos
                 DocumentNumber = DocumentNumber,
                 MonthlyIncome = MonthlyIncome,
                 CreatedAt = DateTime.UtcNow,
-                Gender = Gender,
+                Gender = Enum.Parse<Gender>(Gender, ignoreCase: true)
             };
         }
     }

@@ -25,6 +25,6 @@ namespace Banking.Infrastructure.Repositories
         }
 
         public Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
-            => _context.Customers.FirstOrDefaultAsync(x => x.CustomerId.Equals(customerId), cancellationToken);
+            => _context.Customers.FirstOrDefaultAsync(x => x.CustomerId == customerId, cancellationToken);
     }
 }

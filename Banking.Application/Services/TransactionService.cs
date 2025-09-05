@@ -28,6 +28,9 @@ namespace Banking.Application.Services
             if(account == null) 
                 return null;
 
+            if (amount <= 0)
+                throw new ArgumentException("The amount must be greater than zero.", nameof(amount));
+
             var transaction = new Transaction
             {
                 BankAccountId = account.BankAccountId,
@@ -58,8 +61,12 @@ namespace Banking.Application.Services
             if (account == null)
                 return null;
 
-            if(account.Balance < amount)
-                return null; // Insufficient funds
+            if (amount <= 0)
+                throw new ArgumentException("The amount must be greater than zero.", nameof(amount));
+
+            if (account.Balance < amount)
+                throw new InvalidOperationException("Insufficient funds.");
+
 
             var transaction = new Transaction
             {

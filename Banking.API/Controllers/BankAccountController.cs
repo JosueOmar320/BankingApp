@@ -22,7 +22,7 @@ namespace Banking.API.Controllers
         /// </summary>
         /// <param name="bankAccountDto">DTO with the bankAccount's data to be created</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
-        [HttpPost("CreateBankAccount")]
+        [HttpPost]
         [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> CreateBankAccount(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
@@ -36,13 +36,13 @@ namespace Banking.API.Controllers
         }
 
         /// <summary>
-        /// Create a new Bank Account.
+        /// Get balance by Account Number.
         /// </summary>
         /// <param name="accountNumber">Customer's Account Number</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
-        [HttpGet("GetBalanceByAccountNumber")]
+        [HttpGet("{accountNumber}/balance")]
         [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> GetBalanceByAccountNumber(string accountNumber, CancellationToken cancellationToken = default)
         {
@@ -52,7 +52,7 @@ namespace Banking.API.Controllers
             var result = await _bankAccountService.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken);
 
             if(result == null)
-                return NotFound($"Account {accountNumber} not found.");
+                return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
 
             return Ok(result);
         }

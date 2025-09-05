@@ -28,7 +28,7 @@ namespace Banking.Infrastructure.Repositories
         public async Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
         {
             var account = await _context.BankAccounts
-                            .FirstOrDefaultAsync(b => b.AccountNumber.Equals(accountNumber), cancellationToken);
+                            .FirstOrDefaultAsync(b => b.AccountNumber == accountNumber, cancellationToken);
 
             return account?.Balance;
         }
@@ -36,7 +36,7 @@ namespace Banking.Infrastructure.Repositories
         public async Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
         {
             return await _context.BankAccounts
-                .FirstOrDefaultAsync(b => b.AccountNumber.Equals(accountNumber), cancellationToken);
+                .FirstOrDefaultAsync(b => b.AccountNumber == accountNumber, cancellationToken);
         }
 
         public async Task<BankAccount> UpdateBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default)
@@ -47,6 +47,6 @@ namespace Banking.Infrastructure.Repositories
         }
 
         public Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken)
-            => _context.BankAccounts.AnyAsync(a => a.AccountNumber.Equals(accountNumber), cancellationToken);
+            => _context.BankAccounts.AnyAsync(a => a.AccountNumber == accountNumber, cancellationToken);
     }
 }

@@ -27,8 +27,8 @@ La base de datos ya está creada y contiene **cuentas de prueba**, por lo que so
 
 | Cliente | Número de cuenta | Nombre       | Transacciones |
 |---------|----------------|-------------|--------------|
-| 1       | 1636126864     | Alice Smith | Ninguna      |
-| 2       | 2110431022     | Bob Johnson | Varias       |
+| 1       | 1636126864     | Alice Smith | Varias      |
+| 2       | 2110431022     | Bob Johnson | Ninguna       |
 
 ### Cuentas
 

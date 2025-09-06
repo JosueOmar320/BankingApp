@@ -11,17 +11,35 @@ using System.Threading.Tasks;
 
 namespace Banking.Application.Services
 {
+
+    /// <summary>
+    /// Service responsible for handling all transactions related to bank accounts,
+    /// including deposits, withdrawals, interest application, and transaction summaries.
+    /// </summary>
     public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
         private readonly IBankAccountService _bankAccountService;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TransactionService"/> class.
+        /// </summary>
+        /// <param name="transactionRepository">Repository for managing transactions.</param>
+        /// <param name="bankAccountService">Service for managing bank accounts.</param>
         public TransactionService(ITransactionRepository transactionRepository, IBankAccountService bankAccountService)
         {
             _transactionRepository = transactionRepository;
             _bankAccountService = bankAccountService;
         }
 
+        /// <summary>
+        /// Deposits a specified amount into a bank account.
+        /// </summary>
+        /// <param name="accountNumber">The account number of the bank account.</param>
+        /// <param name="amount">The amount to deposit. Must be greater than zero.</param>
+        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
+        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
+        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
         public async Task<TransactionResponseDto?> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
         {
             var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
@@ -55,6 +73,15 @@ namespace Banking.Application.Services
 
         }
 
+        /// <summary>
+        /// Withdraws a specified amount from a bank account.
+        /// </summary>
+        /// <param name="accountNumber">The account number of the bank account.</param>
+        /// <param name="amount">The amount to withdraw. Must be greater than zero.</param>
+        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
+        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
+        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if account balance is insufficient.</exception>
         public async Task<TransactionResponseDto?> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
         {
             var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
@@ -91,6 +118,12 @@ namespace Banking.Application.Services
             };
         }
 
+        /// <summary>
+        /// Applies interest to a bank account based on its current balance and fixed interest rate.
+        /// </summary>
+        /// <param name="accountNumber">The account number of the bank account.</param>
+        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
+        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
         public async Task<TransactionResponseDto?> ApplyInterestAsync(string accountNumber, CancellationToken cancellationToken = default)
         {
             var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
@@ -120,6 +153,12 @@ namespace Banking.Application.Services
             };
         }
 
+        /// <summary>
+        /// Retrieves a summary of all transactions for a given account, including deposits, withdrawals, interests, starting and final balances.
+        /// </summary>
+        /// <param name="accountNumber">The account number of the bank account.</param>
+        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
+        /// <returns>An account transaction summary, or null if the account does not exist.</returns>
         public async Task<AccountTransactionSummaryDto?> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default)
         {
             var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);

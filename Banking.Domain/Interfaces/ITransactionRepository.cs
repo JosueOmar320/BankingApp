@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace Banking.Domain.Interfaces
 {
+    /// <summary>
+    /// Repository interface for managing transactions in the persistence layer.
+    /// </summary>
     public interface ITransactionRepository
     {
         Task<Transaction> AddTransactionAsync(Transaction transaction, CancellationToken cancellationToken = default);

@@ -24,6 +24,7 @@ namespace Banking.API.Controllers
         /// <param name="cancellationToken">Token to cancel the operation.</param>
         [HttpPost]
         [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> CreateBankAccount(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
         {

@@ -56,6 +56,15 @@ namespace Banking.Tests.Application.Services
         }
 
         [Test]
+        public void DepositAsync_ShouldThrow_WhenAmountIsNegative()
+        {
+            var account = new BankAccount { BankAccountId = 1, AccountNumber = "123", Balance = 100 };
+            _bankAccountServiceMock.Setup(s => s.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(account);
+
+            Assert.ThrowsAsync<ArgumentException>(() => _transactionService.DepositAsync("123", -2));
+        }
+
+        [Test]
         public async Task WithdrawAsync_ShouldDecreaseBalance()
         {
             // Arrange
@@ -82,6 +91,24 @@ namespace Banking.Tests.Application.Services
             _bankAccountServiceMock.Setup(s => s.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(account);
 
             Assert.ThrowsAsync<InvalidOperationException>(() => _transactionService.WithdrawAsync("123", 50));
+        }
+
+        [Test]
+        public void WithdrawalAsync_ShouldThrow_WhenAmountIsZero()
+        {
+            var account = new BankAccount { BankAccountId = 1, AccountNumber = "123", Balance = 100 };
+            _bankAccountServiceMock.Setup(s => s.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(account);
+
+            Assert.ThrowsAsync<ArgumentException>(() => _transactionService.WithdrawAsync("123", 0));
+        }
+
+        [Test]
+        public void WithdrawalAsync_ShouldThrow_WhenAmountIsNegative()
+        {
+            var account = new BankAccount { BankAccountId = 1, AccountNumber = "123", Balance = 100 };
+            _bankAccountServiceMock.Setup(s => s.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(account);
+
+            Assert.ThrowsAsync<ArgumentException>(() => _transactionService.WithdrawAsync("123", -2));
         }
 
         [Test]

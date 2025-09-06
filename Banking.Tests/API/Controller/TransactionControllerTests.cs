@@ -54,6 +54,14 @@ namespace Banking.Tests.API.Controller
         }
 
         [Test]
+        public async Task Deposit_ShouldReturnBadRequest_WhenAmountIsNegative()
+        {
+            var result = await _controller.Deposit("123", -2);
+            var badRequest = result as BadRequestObjectResult;
+            Assert.NotNull(badRequest);
+        }
+
+        [Test]
         public async Task Deposit_ShouldReturnNotFound_WhenAccountDoesNotExist()
         {
             _mockService.Setup(s => s.DepositAsync("999", 100, It.IsAny<CancellationToken>()))
@@ -81,6 +89,22 @@ namespace Banking.Tests.API.Controller
             var result = await _controller.Withdrawal("123", 50);
 
             Assert.IsInstanceOf<OkObjectResult>(result);
+        }
+
+        [Test]
+        public async Task Withdrawal_ShouldReturnBadRequest_WhenAmountIsZero()
+        {
+            var result = await _controller.Withdrawal("123", 0);
+            var badRequest = result as BadRequestObjectResult;
+            Assert.NotNull(badRequest);
+        }
+
+        [Test]
+        public async Task Withdrawal_ShouldReturnBadRequest_WhenAmountIsNegative()
+        {
+            var result = await _controller.Withdrawal("123", -2);
+            var badRequest = result as BadRequestObjectResult;
+            Assert.NotNull(badRequest);
         }
 
         [Test]

@@ -28,12 +28,20 @@ namespace Banking.API.Controllers
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> CreateBankAccount(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
         {
-            if (cancellationToken.IsCancellationRequested)
-                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+            try
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return StatusCode(StatusCodes.Status499ClientClosedRequest);
 
-            var result = await _bankAccountService.CreateBankAccountAsync(bankAccountDto, cancellationToken);
+                var result = await _bankAccountService.CreateBankAccountAsync(bankAccountDto, cancellationToken);
 
-            return Created("", result);
+                return Created("", result);
+            }
+            catch (InvalidOperationException ex) 
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+           
         }
 
         /// <summary>

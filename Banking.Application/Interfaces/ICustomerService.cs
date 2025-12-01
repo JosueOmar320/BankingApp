@@ -20,5 +20,13 @@ namespace Banking.Application.Interfaces
         /// <param name="cancellationToken">Optional token to cancel the operation.</param>
         /// <returns>The newly created customer details.</returns>
         Task<CustomerResponseDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets a customer by their unique ID.
+        /// </summary>
+        /// <param name="customerId">The ID of the customer.</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>The <see cref="Customer"/> entity or null if not found.</returns>
+        Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default);
     }
 }

@@ -44,7 +44,11 @@ namespace Banking.API.Controllers
 
                 return Ok(result);
             }
-            catch (InvalidOperationException ex) when (ex.Message == "Insufficient funds.")
+            catch (InvalidOperationException ex) 
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
@@ -65,18 +69,29 @@ namespace Banking.API.Controllers
         [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
         public async Task<IActionResult> Withdrawal(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
         {
-            if (cancellationToken.IsCancellationRequested)
-                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+            try
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return StatusCode(StatusCodes.Status499ClientClosedRequest);
 
-            if (amount <= 0 || amount == 0)
-                return BadRequest(new ErrorResponseDto { Message = "Amount must be greater than zero." });
+                if (amount <= 0 || amount == 0)
+                    return BadRequest(new ErrorResponseDto { Message = "Amount must be greater than zero." });
 
-            var result = await _transactionService.WithdrawAsync(accountNumber, amount, cancellationToken);
+                var result = await _transactionService.WithdrawAsync(accountNumber, amount, cancellationToken);
 
-            if (result == null)
-                return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
+                if (result == null)
+                    return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
 
-            return Ok(result);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>

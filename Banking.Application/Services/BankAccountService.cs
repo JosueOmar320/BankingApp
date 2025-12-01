@@ -16,6 +16,7 @@ namespace Banking.Application.Services
     public class BankAccountService : Interfaces.IBankAccountService
     {
         private readonly IBankAccountRepository _bankAccountRepository;
+        private readonly ICustomerService _customerService;
 
         /// <summary>
         /// Fixed interest rate applied to all bank accounts (10%).
@@ -26,9 +27,11 @@ namespace Banking.Application.Services
         /// Initializes a new instance of the <see cref="BankAccountService"/> class.
         /// </summary>
         /// <param name="bankAccountRepository">Repository for managing bank accounts.</param>
-        public BankAccountService(IBankAccountRepository bankAccountRepository)
+        /// <param name="customerService">Service for managing Customers.</param>
+        public BankAccountService(IBankAccountRepository bankAccountRepository, ICustomerService customerService)
         {
             _bankAccountRepository = bankAccountRepository;
+            _customerService = customerService;
         }
 
         /// <summary>
@@ -39,6 +42,11 @@ namespace Banking.Application.Services
         /// <returns>The created bank account details including account number.</returns>
         public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
         {
+            var customer = await _customerService.GetCustomerByIdAsync(bankAccountDto.CustomerId, cancellationToken);
+
+            if(customer == null)
+                throw new InvalidOperationException($"Not found customer for id: {bankAccountDto.CustomerId}");
+
             var account = new BankAccount
             {
                 CustomerId = bankAccountDto.CustomerId,

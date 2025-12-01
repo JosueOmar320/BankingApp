@@ -45,7 +45,16 @@ namespace Banking.Application.Services
                 CustomerId = result.CustomerId,
                 Gender = result.Gender,
             };
-        } 
+        }
+
+        /// <summary>
+        /// Gets a customer by their unique ID.
+        /// </summary>
+        /// <param name="customerId">The ID of the customer.</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        /// <returns>The <see cref="Customer"/> entity or null if not found.</returns>
+        public Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
+            => _customerRepository.GetCustomerByIdAsync(customerId, cancellationToken);
 
     }
 }

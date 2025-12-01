@@ -1,85 +1,85 @@
 # BankingApp
-# API de Banca en .NET 8
+# .NET 8 Banking API
 
-Este proyecto es una **API de banca** desarrollada en **.NET 8** usando **ASP.NET Web API**. Permite gestionar clientes, cuentas bancarias y transacciones (depósitos, retiros y cálculo de intereses).  
+This project is a **Banking API** developed in **.NET 8** using **ASP.NET Web API**. It allows for the management of clients, bank accounts, and transactions (deposits, withdrawals, and interest calculation).
 
-La base de datos ya está creada y contiene **cuentas de prueba**, por lo que solo necesitas ejecutar la API.
-
----
-
-## Características
-
-- Crear perfil de cliente
-- Crear cuenta bancaria asociada a un cliente
-- Consultar saldo de una cuenta
-- Registrar depósitos y retiros
-- Aplicar intereses sobre el saldo
-- Consultar historial de transacciones y resumen del saldo final
-- Validaciones de integridad: saldo inicial mayor a 0, retiro no mayor al saldo disponible
-- Pruebas unitarias con **NUnit** y **Moq**
-- Documentación Swagger integrada
+The database is already created and contains **test accounts**, so you only need to run the API.
 
 ---
 
-### Cuentas
+## Features
 
-- La **tasa de interés es fija del 10%** para todas las cuentas.
+- Create client profile
+- Create a bank account associated with a client
+- Check account balance
+- Register deposits and withdrawals
+- Apply interest on the balance
+- View transaction history and final balance summary
+- Integrity validations: initial balance greater than 0, withdrawal cannot exceed available balance
+- Unit tests with **NUnit** and **Moq**
+- Integrated Swagger documentation
 
-## Requisitos previos
-- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) instalado
-- Visual Studio, Visual Studio Code o cualquier editor compatible con .NET
+---
 
-## Ejecución del proyecto
-1. Clonar el repositorio:
+### Accounts
+
+- The **interest rate is fixed at 10%** for all accounts.
+
+## Prerequisites
+- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) installed
+- Visual Studio, Visual Studio Code, or any .NET compatible editor
+
+## Project Execution
+1. Clone the repository:
    ```bash
-   git clone https://github.com/usuario/BankingApp.git
+   git clone [https://github.com/user/BankingApp.git](https://github.com/user/BankingApp.git)
    cd BankingApp
-2. Clonar el repositorio:
+2. Restore dependencies:
   ```bash
   dotnet restore
   ```
 
-3. Ejecutar la API:
+3. Run the API:
   ```bash
   dotnet run --project Banking.Api
   ```
 
-La API se ejecutará en:
+The API will run at:
   ```bash
   https://localhost:7201
   http://localhost:5200
   ```
   
-5. Abrir Swagger para probar los endpoints en el navegador:
+4. Open Swagger to test the endpoints in your browser:
   ```bash
    https://localhost:7201/swagger
    http://localhost:5200/swagger
   ```
 
-## Pruebas Unitarias
+## Unit Tests
 
-- **Proyecto de pruebas:** `Banking.Tests`
-- **Frameworks utilizados:** NUnit, Moq
+- **Test Project:** `Banking.Tests`
+- **Frameworks used:** NUnit, Moq
 
-## Cobertura de Pruebas
+## Test Coverage
 
-Las pruebas unitarias incluyen los siguientes escenarios:
+The unit tests include the following scenarios:
 
-- **Creación de clientes y cuentas**
-- **Operaciones de depósito y retiro**
-- **Aplicación de intereses** (tasa fija del 10%)
-- **Consultas de saldo y resumen de transacciones**
-- **Validación de errores:**
-  - Fondos insuficientes
-  - Montos negativos o cero
-  - Validaciones de datos obligatorios
+- **Client and account creation**
+- **Deposit and withdrawal operations**
+- **Interest application** (fixed 10% rate)
+- **Balance inquiries and transaction summaries**
+- **Error validation:**
+  - Insufficient funds
+  - Negative or zero amounts
+  - Mandatory data validations
 
-### Ejecutar todas las pruebas
+### Run all tests
 ```bash
 dotnet test
 ```
 
-### Ejecutar pruebas con detalles
+### Run tests with details
 ```bash
 dotnet test --logger "console;verbosity=detailed"
 ```

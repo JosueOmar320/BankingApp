@@ -21,18 +21,40 @@ La base de datos ya está creada y contiene **cuentas de prueba**, por lo que so
 
 ---
 
-## Datos de prueba
-
-### Clientes
-
-| Cliente | Número de cuenta | Nombre       | Transacciones |
-|---------|----------------|-------------|--------------|
-| 1       | 1636126864     | Alice Smith | Varias      |
-| 2       | 2110431022     | Bob Johnson | Ninguna       |
-
 ### Cuentas
 
 - La **tasa de interés es fija del 10%** para todas las cuentas.
+
+## Requisitos previos
+- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) instalado
+- Visual Studio, Visual Studio Code o cualquier editor compatible con .NET
+
+## Ejecución del proyecto
+1. Clonar el repositorio:
+   ```bash
+   git clone https://github.com/usuario/BankingApp.git
+   cd BankingApp
+2. Clonar el repositorio:
+  ```bash
+  dotnet restore
+  ```
+
+3. Ejecutar la API:
+  ```bash
+  dotnet run --project Banking.Api
+  ```
+
+La API se ejecutará en:
+  ```bash
+  https://localhost:7201
+  http://localhost:5200
+  ```
+  
+5. Abrir Swagger para probar los endpoints en el navegador:
+  ```bash
+   https://localhost:7201/swagger
+   http://localhost:5200/swagger
+  ```
 
 ## Pruebas Unitarias
 
@@ -52,9 +74,18 @@ Las pruebas unitarias incluyen los siguientes escenarios:
   - Montos negativos o cero
   - Validaciones de datos obligatorios
 
-
 ### Ejecutar todas las pruebas
 ```bash
 dotnet test
+```
+
+### Ejecutar pruebas con detalles
+```bash
+dotnet test --logger "console;verbosity=detailed"
+```
+
+
+
+
 
 

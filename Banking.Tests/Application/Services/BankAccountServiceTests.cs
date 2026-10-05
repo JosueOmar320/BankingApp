@@ -1,4 +1,5 @@
 ﻿using Banking.Application.Dtos;
+using Banking.Application.Interfaces;
 using Banking.Application.Services;
 using Banking.Domain.Entities;
 using Banking.Domain.Interfaces;
@@ -14,13 +15,15 @@ namespace Banking.Tests.Application.Services
     public class BankAccountServiceTests
     {
         private Mock<IBankAccountRepository> _bankAccountRepositoryMock;
+        private Mock<ICustomerService> _customerServiceMock;
         private BankAccountService _bankAccountService;
 
         [SetUp]
         public void Setup()
         {
             _bankAccountRepositoryMock = new Mock<IBankAccountRepository>();
-            _bankAccountService = new BankAccountService(_bankAccountRepositoryMock.Object);
+            _customerServiceMock = new Mock<ICustomerService>();
+            _bankAccountService = new BankAccountService(_bankAccountRepositoryMock.Object, _customerServiceMock.Object);
         }
 
         [Test]
@@ -29,6 +32,10 @@ namespace Banking.Tests.Application.Services
             // Arrange
             var dto = new CreateBankAccountDto { CustomerId = 1, InitialDeposit = 1000 };
             var fakeAccount = new BankAccount { BankAccountId = 1, AccountNumber = "1234567890", Balance = 1000, CustomerId = 1 };
+
+            _customerServiceMock
+                .Setup(s => s.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Customer { CustomerId = 1, FirstName = "John", DocumentNumber = "001" });
 
             _bankAccountRepositoryMock
                 .Setup(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()))
@@ -45,6 +52,21 @@ namespace Banking.Tests.Application.Services
             Assert.NotNull(result);
             Assert.That(result.AccountNumber, Is.EqualTo(fakeAccount.AccountNumber));
             _bankAccountRepositoryMock.Verify(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Test]
+        public void CreateBankAccountAsync_ShouldThrow_WhenCustomerNotFound()
+        {
+            // Arrange
+            var dto = new CreateBankAccountDto { CustomerId = 99, InitialDeposit = 1000 };
+
+            _customerServiceMock
+                .Setup(s => s.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Customer?)null);
+
+            // Act & Assert
+            Assert.ThrowsAsync<InvalidOperationException>(() => _bankAccountService.CreateBankAccountAsync(dto));
+            _bankAccountRepositoryMock.Verify(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Test]

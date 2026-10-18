@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Banking.API.Auth;
@@ -29,17 +29,21 @@ public sealed class BearerSecurityOperationFilter : IOperationFilter
         operation.Security ??= [];
         operation.Security.Add(new OpenApiSecurityRequirement
         {
-            [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = SchemeName } }] = [],
+            [new OpenApiSecuritySchemeReference(SchemeName, context.Document)] = [],
         });
 
         var problem = context.SchemaGenerator.GenerateSchema(typeof(ProblemDetails), context.SchemaRepository);
+        operation.Responses ??= [];
         operation.Responses.TryAdd("401", ProblemResponse("The request carries no valid bearer token.", problem));
         operation.Responses.TryAdd("403", ProblemResponse("The resource belongs to another customer.", problem));
     }
 
-    private static OpenApiResponse ProblemResponse(string description, OpenApiSchema schema) => new()
+    private static OpenApiResponse ProblemResponse(string description, IOpenApiSchema schema) => new()
     {
         Description = description,
-        Content = { ["application/problem+json"] = new OpenApiMediaType { Schema = schema } },
+        Content = new Dictionary<string, OpenApiMediaType>
+        {
+            ["application/problem+json"] = new OpenApiMediaType { Schema = schema },
+        },
     };
 }

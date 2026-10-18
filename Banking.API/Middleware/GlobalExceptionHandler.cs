@@ -12,6 +12,8 @@ namespace Banking.API.Middleware;
 /// <summary>
 /// Translates exceptions into RFC 7807 problem responses with a stable mapping:
 /// <list type="bullet">
+/// <item><see cref="InvalidCredentialsException"/> → 401</item>
+/// <item><see cref="ForbiddenException"/> → 403</item>
 /// <item><see cref="NotFoundException"/> → 404</item>
 /// <item><see cref="DuplicateDocumentNumberException"/>, <see cref="ConcurrencyConflictException"/> → 409</item>
 /// <item><see cref="DomainException"/> (business rule violated) → 400</item>
@@ -46,6 +48,8 @@ public sealed partial class GlobalExceptionHandler : IExceptionHandler
 
         var (status, titleKey) = exception switch
         {
+            InvalidCredentialsException => (StatusCodes.Status401Unauthorized, ProblemTitles.InvalidCredentials),
+            ForbiddenException => (StatusCodes.Status403Forbidden, ProblemTitles.Forbidden),
             NotFoundException => (StatusCodes.Status404NotFound, ProblemTitles.NotFound),
             DuplicateDocumentNumberException => (StatusCodes.Status409Conflict, ProblemTitles.DuplicateDocumentNumber),
             ConcurrencyConflictException => (StatusCodes.Status409Conflict, ProblemTitles.ConcurrencyConflict),

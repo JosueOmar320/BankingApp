@@ -14,4 +14,13 @@ internal static partial class Log
 
     [LoggerMessage(EventId = 1002, Level = LogLevel.Information, Message = "{TransactionType} of {Amount} applied to account {BankAccountId}; balance is now {Balance}")]
     public static partial void TransactionApplied(ILogger logger, TransactionType transactionType, decimal amount, int bankAccountId, decimal balance);
+
+    [LoggerMessage(EventId = 1100, Level = LogLevel.Information, Message = "Customer {CustomerId} logged in")]
+    public static partial void LoginSucceeded(ILogger logger, int customerId);
+
+    [LoggerMessage(EventId = 1101, Level = LogLevel.Warning, Message = "Login rejected for customer {CustomerId}: wrong password")]
+    public static partial void LoginRejected(ILogger logger, int customerId);
+
+    [LoggerMessage(EventId = 1102, Level = LogLevel.Warning, Message = "Login rejected: unknown document number")]
+    public static partial void LoginRejectedUnknownDocument(ILogger logger);
 }

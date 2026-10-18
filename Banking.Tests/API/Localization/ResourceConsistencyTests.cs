@@ -47,10 +47,13 @@ public class ResourceConsistencyTests
         }
 
         yield return NotFoundException.DefaultCode;
+        yield return ForbiddenException.DefaultCode;
 
-        // Of the API codes, only the cancelled request carries a translated detail: validation
-        // failures explain themselves in the errors map and unexpected errors return no detail.
+        // Of the API codes, only the cancelled request and the missing token carry a translated
+        // detail: validation failures explain themselves in the errors map and unexpected errors
+        // return no detail.
         yield return ApiErrorCodes.RequestCancelled;
+        yield return ApiErrorCodes.AuthenticationRequired;
     }
 
     private static IEnumerable<string> ValidationMessageKeysUsedByCode()

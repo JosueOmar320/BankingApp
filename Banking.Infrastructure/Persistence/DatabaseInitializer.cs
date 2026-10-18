@@ -1,4 +1,5 @@
 using System.Globalization;
+using Banking.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,7 +39,8 @@ public static partial class DatabaseInitializer
 
         if (seedSampleData)
         {
-            await DevelopmentDataSeeder.SeedAsync(context, timeProvider, cancellationToken);
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            await DevelopmentDataSeeder.SeedAsync(context, timeProvider, passwordHasher, cancellationToken);
         }
     }
 

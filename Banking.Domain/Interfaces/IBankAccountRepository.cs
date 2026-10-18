@@ -9,9 +9,6 @@ public interface IBankAccountRepository
     /// <summary>Gets an account (tracked, ready to be modified) or <see langword="null"/>.</summary>
     Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
 
-    /// <summary>Reads only the balance of an account, or <see langword="null"/> when it does not exist.</summary>
-    Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
-
     /// <summary>Checks whether an account number is already taken.</summary>
     Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
 

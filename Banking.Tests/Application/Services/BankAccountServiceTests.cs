@@ -15,6 +15,7 @@ public class BankAccountServiceTests
 {
     private Mock<IBankAccountRepository> _accounts = null!;
     private Mock<ICustomerRepository> _customers = null!;
+    private FakeCurrentCustomer _caller = null!;
     private BankAccountService _service = null!;
 
     [SetUp]
@@ -22,7 +23,8 @@ public class BankAccountServiceTests
     {
         _accounts = new Mock<IBankAccountRepository>(MockBehavior.Strict);
         _customers = new Mock<ICustomerRepository>(MockBehavior.Strict);
-        _service = new BankAccountService(_accounts.Object, _customers.Object, new FixedTimeProvider(), NullLogger<BankAccountService>.Instance);
+        _caller = new FakeCurrentCustomer(1);
+        _service = new BankAccountService(_accounts.Object, _customers.Object, _caller, new FixedTimeProvider(), NullLogger<BankAccountService>.Instance);
     }
 
     [Test]
@@ -68,8 +70,18 @@ public class BankAccountServiceTests
     }
 
     [Test]
+    public void CreateBankAccountAsync_ThrowsForbiddenWhenOpeningForAnotherCustomer()
+    {
+        var ex = Assert.ThrowsAsync<ForbiddenException>(() => _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 2, InitialDeposit = 100m }));
+
+        Assert.That(ex!.Code, Is.EqualTo(ApplicationErrorCodes.CustomerAccessDenied));
+        _accounts.Verify(a => a.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
     public void CreateBankAccountAsync_ThrowsNotFoundWhenCustomerMissing()
     {
+        _caller.CustomerId = 99;
         _customers.Setup(c => c.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((Customer?)null);
 
         Assert.ThrowsAsync<NotFoundException>(() => _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 99, InitialDeposit = 100m }));
@@ -89,7 +101,7 @@ public class BankAccountServiceTests
     [Test]
     public async Task GetBalanceByAccountNumberAsync_ReturnsBalanceDto()
     {
-        _accounts.Setup(a => a.GetBalanceByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(500m);
+        _accounts.Setup(a => a.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Account(initialDeposit: 500m, accountNumber: "123"));
 
         var result = await _service.GetBalanceByAccountNumberAsync("123");
 
@@ -103,9 +115,25 @@ public class BankAccountServiceTests
     [Test]
     public void GetBalanceByAccountNumberAsync_ThrowsNotFound()
     {
-        _accounts.Setup(a => a.GetBalanceByAccountNumberAsync("999", It.IsAny<CancellationToken>())).ReturnsAsync((decimal?)null);
+        _accounts.Setup(a => a.GetByAccountNumberAsync("999", It.IsAny<CancellationToken>())).ReturnsAsync((BankAccount?)null);
 
         Assert.ThrowsAsync<NotFoundException>(() => _service.GetBalanceByAccountNumberAsync("999"));
+    }
+
+    [Test]
+    public void GetBalanceAndAccount_ThrowForbiddenForAnotherCustomersAccount()
+    {
+        _accounts.Setup(a => a.GetByAccountNumberAsync("1234567890", It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Account(customerId: 2));
+
+        var balance = Assert.ThrowsAsync<ForbiddenException>(() => _service.GetBalanceByAccountNumberAsync("1234567890"));
+        var account = Assert.ThrowsAsync<ForbiddenException>(() => _service.GetByAccountNumberAsync("1234567890"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(balance!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(balance.MessageArguments, Is.EqualTo(new object[] { "1234567890" }));
+            Assert.That(account!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+        });
     }
 
     [Test]

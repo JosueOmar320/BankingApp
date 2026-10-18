@@ -8,6 +8,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.21" />
+    <!-- Only for PasswordHasher<T> (PBKDF2); no Identity stores or UI. -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.32" />
   </ItemGroup>
 
   <ItemGroup>

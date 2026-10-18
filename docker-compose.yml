@@ -9,6 +9,8 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ConnectionStrings__DefaultConnection: "Data Source=/data/banking.db"
       Database__SeedSampleData: ${SEED_SAMPLE_DATA:-true}
+      # Development-only default; the API refuses it outside Development, so set JWT_SIGNING_KEY for Production.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-DEVELOPMENT-ONLY-signing-key-never-use-outside-local-development-0123456789}
     volumes:
       - banking-data:/data
     restart: unless-stopped

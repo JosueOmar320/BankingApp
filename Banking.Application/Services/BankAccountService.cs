@@ -16,17 +16,20 @@ internal sealed class BankAccountService : IBankAccountService
 
     private readonly IBankAccountRepository _bankAccountRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly ICurrentCustomer _currentCustomer;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<BankAccountService> _logger;
 
     public BankAccountService(
         IBankAccountRepository bankAccountRepository,
         ICustomerRepository customerRepository,
+        ICurrentCustomer currentCustomer,
         TimeProvider timeProvider,
         ILogger<BankAccountService> logger)
     {
         _bankAccountRepository = bankAccountRepository;
         _customerRepository = customerRepository;
+        _currentCustomer = currentCustomer;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -34,6 +37,9 @@ internal sealed class BankAccountService : IBankAccountService
     public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bankAccountDto);
+
+        // A customer opens accounts for themself only.
+        _currentCustomer.EnsureIs(bankAccountDto.CustomerId);
 
         if (await _customerRepository.GetCustomerByIdAsync(bankAccountDto.CustomerId, cancellationToken) is null)
         {
@@ -51,18 +57,26 @@ internal sealed class BankAccountService : IBankAccountService
 
     public async Task<BankAccountResponseDto> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
     {
-        var account = await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
-            ?? throw new NotFoundException("Account", accountNumber);
+        var account = await LoadOwnAccountAsync(accountNumber, cancellationToken);
 
         return account.ToDto();
     }
 
     public async Task<AccountBalanceDto> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
     {
-        var balance = await _bankAccountRepository.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken)
-            ?? throw new NotFoundException("Account", accountNumber);
+        var account = await LoadOwnAccountAsync(accountNumber, cancellationToken);
 
-        return new AccountBalanceDto(accountNumber, balance);
+        return new AccountBalanceDto(account.AccountNumber, account.Balance);
+    }
+
+    /// <summary>Loads an account that must exist (404) and belong to the caller (403).</summary>
+    private async Task<BankAccount> LoadOwnAccountAsync(string accountNumber, CancellationToken cancellationToken)
+    {
+        var account = await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
+            ?? throw new NotFoundException("Account", accountNumber);
+        account.EnsureOwnedBy(_currentCustomer);
+
+        return account;
     }
 
     private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken)

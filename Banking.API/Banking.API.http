@@ -1,6 +1,6 @@
 @host = http://localhost:5200
 
-### Register a customer
+### Register a customer (public)
 POST {{host}}/api/Customer
 Content-Type: application/json
 
@@ -10,15 +10,53 @@ Content-Type: application/json
   "birthDate": "1992-07-15",
   "documentNumber": "001-150792-0003C",
   "gender": "F",
-  "monthlyIncome": 2200
+  "monthlyIncome": 2200,
+  "password": "Banking123!"
 }
 
-### Get a customer
-GET {{host}}/api/Customer/1
+### Log in as the seeded customer Ana (account 1000000001). Run this first: the requests below reuse the token.
+# @name login
+POST {{host}}/api/Auth/login
+Content-Type: application/json
 
-### Open an account (customer must exist)
+{
+  "documentNumber": "001-120490-0001A",
+  "password": "Banking123!"
+}
+
+###
+@token = {{login.response.body.$.accessToken}}
+
+### Log in as Luis (account 1000000002) to try the 403 responses
+# @name loginLuis
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "documentNumber": "001-031185-0002B",
+  "password": "Banking123!"
+}
+
+###
+@luisToken = {{loginLuis.response.body.$.accessToken}}
+
+### Wrong password: 401 problem
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "documentNumber": "001-120490-0001A",
+  "password": "nope"
+}
+
+### Get my own customer record
+GET {{host}}/api/Customer/1
+Authorization: Bearer {{token}}
+
+### Open another account for myself (customerId must be mine)
 POST {{host}}/api/BankAccount
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "customerId": 1,
@@ -27,13 +65,16 @@ Content-Type: application/json
 
 ### Seeded account: details and balance
 GET {{host}}/api/BankAccount/1000000001
+Authorization: Bearer {{token}}
 
 ###
 GET {{host}}/api/BankAccount/1000000001/balance
+Authorization: Bearer {{token}}
 
 ### Deposit
 POST {{host}}/api/Transaction/Deposit
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "accountNumber": "1000000001",
@@ -43,6 +84,7 @@ Content-Type: application/json
 ### Withdrawal
 POST {{host}}/api/Transaction/Withdrawal
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "accountNumber": "1000000001",
@@ -52,6 +94,7 @@ Content-Type: application/json
 ### Apply interest
 POST {{host}}/api/Transaction/Apply-Interest
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "accountNumber": "1000000001"
@@ -61,6 +104,7 @@ Content-Type: application/json
 POST {{host}}/api/Transaction/Withdrawal
 Content-Type: application/json
 Accept-Language: es
+Authorization: Bearer {{token}}
 
 {
   "accountNumber": "1000000001",
@@ -70,9 +114,18 @@ Accept-Language: es
 ### Unknown customer, error in Spanish
 GET {{host}}/api/Customer/999999
 Accept-Language: es-NI
+Authorization: Bearer {{token}}
 
 ### Ledger summary
 GET {{host}}/api/Transaction/1000000001/summary
+Authorization: Bearer {{token}}
 
-### Health
+### No token: 401 problem with WWW-Authenticate
+GET {{host}}/api/BankAccount/1000000001/balance
+
+### Luis reading Ana's account: 403 problem
+GET {{host}}/api/BankAccount/1000000001/balance
+Authorization: Bearer {{luisToken}}
+
+### Health (public)
 GET {{host}}/health

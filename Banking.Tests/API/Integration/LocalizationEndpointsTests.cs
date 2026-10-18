@@ -44,6 +44,8 @@ public class LocalizationEndpointsTests : ApiTestBase
     [Test]
     public async Task GetCustomer_Unknown_IsTranslatedByAcceptLanguage()
     {
+        await CreateCustomerAsync();
+
         var english = await GetProblemAsync("/api/Customer/999999", "en");
         var spanish = await GetProblemAsync("/api/Customer/999999", "es");
 
@@ -98,6 +100,8 @@ public class LocalizationEndpointsTests : ApiTestBase
     [Test]
     public async Task ValidationErrors_AreTranslatedByAcceptLanguage()
     {
+        await CreateCustomerAsync();
+
         var invalid = new CreateBankAccountDto { CustomerId = 0, InitialDeposit = -1m };
 
         var english = await PostValidationProblemAsync("/api/BankAccount", invalid, "en-US");
@@ -122,6 +126,8 @@ public class LocalizationEndpointsTests : ApiTestBase
     [Test]
     public async Task ValidationErrors_WithPlaceholders_UseTheAttributeArguments()
     {
+        await CreateCustomerAsync();
+
         var tooLong = new TransactionRequestDto { AccountNumber = new string('1', 33), Amount = 1m };
 
         var spanish = await PostValidationProblemAsync("/api/Transaction/Deposit", tooLong, "es");
@@ -139,6 +145,8 @@ public class LocalizationEndpointsTests : ApiTestBase
     [TestCase("*", "en-US", TestName = "Wildcard_DefaultsToEnglish")]
     public async Task AcceptLanguage_SelectsTheResponseCulture(string? acceptLanguage, string expectedCulture)
     {
+        await CreateCustomerAsync();
+
         var result = await GetProblemAsync("/api/BankAccount/0000000000/balance", acceptLanguage);
 
         Assert.Multiple(() =>
@@ -174,6 +182,7 @@ public class LocalizationEndpointsTests : ApiTestBase
         BirthDate = new DateOnly(1990, 1, 1),
         DocumentNumber = documentNumber,
         Gender = Gender.F,
+        Password = DefaultPassword,
     };
 
     private Task<ProblemResult<ProblemDetails>> GetProblemAsync(string url, string? acceptLanguage)

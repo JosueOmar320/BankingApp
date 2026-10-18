@@ -88,6 +88,13 @@ namespace Banking.Infrastructure.Migrations
                     b.Property<decimal>("MonthlyIncome")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
                     b.HasKey("CustomerId");
 
                     b.HasIndex("DocumentNumber")

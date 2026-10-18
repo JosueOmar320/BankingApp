@@ -60,4 +60,24 @@ public class CustomerRepositoryTests
 
         Assert.That(result, Is.Null);
     }
+
+    [Test]
+    public async Task GetCustomerByDocumentNumberAsync_ReturnsTheCustomerWithItsPasswordHash()
+    {
+        await using var context = _database.CreateContext();
+        var saved = await new CustomerRepository(context).AddCustomerAsync(TestData.Customer("DOC-LOGIN"));
+
+        await using var verification = _database.CreateContext();
+        var repository = new CustomerRepository(verification);
+        var found = await repository.GetCustomerByDocumentNumberAsync("DOC-LOGIN");
+        var missing = await repository.GetCustomerByDocumentNumberAsync("DOC-NOBODY");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found?.CustomerId, Is.EqualTo(saved.CustomerId));
+            Assert.That(found!.PasswordHash, Is.EqualTo(saved.PasswordHash), "the hash round-trips through the database");
+            Assert.That(found.VerifyPassword(TestData.Password, TestData.Hasher), Is.True);
+            Assert.That(missing, Is.Null);
+        });
+    }
 }

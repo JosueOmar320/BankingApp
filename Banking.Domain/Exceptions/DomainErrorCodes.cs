@@ -56,6 +56,15 @@ public static class DomainErrorCodes
     /// <summary>The monthly income is negative.</summary>
     public const string NegativeMonthlyIncome = nameof(NegativeMonthlyIncome);
 
+    /// <summary>The login password is missing.</summary>
+    public const string PasswordRequired = nameof(PasswordRequired);
+
+    /// <summary>The login password is too short. Arguments: minimum length.</summary>
+    public const string PasswordTooShort = nameof(PasswordTooShort);
+
+    /// <summary>The login password is too long. Arguments: maximum length.</summary>
+    public const string PasswordTooLong = nameof(PasswordTooLong);
+
     /// <summary>Another customer already has the document number. Arguments: document number.</summary>
     public const string DuplicateDocumentNumber = nameof(DuplicateDocumentNumber);
 

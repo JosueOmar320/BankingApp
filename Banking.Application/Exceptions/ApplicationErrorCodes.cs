@@ -11,4 +11,13 @@ public static class ApplicationErrorCodes
 
     /// <summary>No account has the given number. Arguments: account number.</summary>
     public const string AccountNotFound = nameof(AccountNotFound);
+
+    /// <summary>The account belongs to another customer. Arguments: account number.</summary>
+    public const string AccountAccessDenied = nameof(AccountAccessDenied);
+
+    /// <summary>The customer record belongs to another customer. Arguments: customer id.</summary>
+    public const string CustomerAccessDenied = nameof(CustomerAccessDenied);
+
+    /// <summary>The document number or the password of a login attempt is wrong.</summary>
+    public const string InvalidCredentials = nameof(InvalidCredentials);
 }

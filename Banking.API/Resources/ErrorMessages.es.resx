@@ -106,4 +106,37 @@
   <data name="RequestCancelled" xml:space="preserve">
     <value>El cliente canceló la solicitud.</value>
   </data>
+  <data name="Title.AuthenticationRequired" xml:space="preserve">
+    <value>Autenticación requerida</value>
+  </data>
+  <data name="Title.InvalidCredentials" xml:space="preserve">
+    <value>Credenciales inválidas</value>
+  </data>
+  <data name="Title.Forbidden" xml:space="preserve">
+    <value>Acceso denegado</value>
+  </data>
+  <data name="AuthenticationRequired" xml:space="preserve">
+    <value>Se requiere un token bearer válido. Inicie sesión con POST /api/Auth/login y envíe el token como 'Authorization: Bearer &lt;token&gt;'.</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>El número de documento o la contraseña son incorrectos.</value>
+  </data>
+  <data name="AccessDenied" xml:space="preserve">
+    <value>Acceso denegado al recurso solicitado.</value>
+  </data>
+  <data name="AccountAccessDenied" xml:space="preserve">
+    <value>La cuenta '{0}' pertenece a otro cliente.</value>
+  </data>
+  <data name="CustomerAccessDenied" xml:space="preserve">
+    <value>El cliente '{0}' no es el cliente autenticado.</value>
+  </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>La contraseña es obligatoria.</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>La contraseña debe tener al menos {0} caracteres.</value>
+  </data>
+  <data name="PasswordTooLong" xml:space="preserve">
+    <value>La contraseña no puede tener más de {0} caracteres.</value>
+  </data>
 </root>

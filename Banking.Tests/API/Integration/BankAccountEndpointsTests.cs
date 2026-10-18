@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Banking.Tests.API.Integration;
@@ -27,11 +28,21 @@ public class BankAccountEndpointsTests : ApiTestBase
     }
 
     [Test]
-    public async Task PostBankAccount_UnknownCustomer_Returns404()
+    public async Task PostBankAccount_ForAnotherCustomer_Returns403Problem()
     {
-        var response = await Client.PostAsJsonAsync("/api/BankAccount", new CreateBankAccountDto { CustomerId = 999999, InitialDeposit = 100m }, Json);
+        var other = await CreateCustomerAsync();
+        await CreateCustomerAsync();
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        var response = await Client.PostAsJsonAsync("/api/BankAccount", new CreateBankAccountDto { CustomerId = other.CustomerId, InitialDeposit = 100m }, Json);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/problem+json"));
+            Assert.That(problem!.Title, Is.EqualTo("Access denied"));
+            Assert.That(problem.Extensions["code"]!.ToString(), Is.EqualTo(ApplicationErrorCodes.CustomerAccessDenied));
+        });
     }
 
     [Test]
@@ -49,6 +60,8 @@ public class BankAccountEndpointsTests : ApiTestBase
     [Test]
     public async Task PostBankAccount_InvalidPayload_Returns400ValidationProblem()
     {
+        await CreateCustomerAsync();
+
         var response = await Client.PostAsJsonAsync("/api/BankAccount", new CreateBankAccountDto { CustomerId = 0, InitialDeposit = -1m }, Json);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -74,14 +87,18 @@ public class BankAccountEndpointsTests : ApiTestBase
     [Test]
     public async Task GetBalance_UnknownAccount_Returns404()
     {
+        await CreateCustomerAsync();
+
         var response = await Client.GetAsync("/api/BankAccount/0000000000/balance");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     [Test]
-    public async Task Health_ReturnsHealthy()
+    public async Task Health_ReturnsHealthy_WithoutAToken()
     {
+        UseToken(null);
+
         var response = await Client.GetAsync("/health");
 
         var body = await response.Content.ReadAsStringAsync();

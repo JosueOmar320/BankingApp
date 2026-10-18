@@ -12,12 +12,21 @@ namespace Banking.Application.Services;
 internal sealed class CustomerService : ICustomerService
 {
     private readonly ICustomerRepository _customerRepository;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly ICurrentCustomer _currentCustomer;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<CustomerService> _logger;
 
-    public CustomerService(ICustomerRepository customerRepository, TimeProvider timeProvider, ILogger<CustomerService> logger)
+    public CustomerService(
+        ICustomerRepository customerRepository,
+        IPasswordHasher passwordHasher,
+        ICurrentCustomer currentCustomer,
+        TimeProvider timeProvider,
+        ILogger<CustomerService> logger)
     {
         _customerRepository = customerRepository;
+        _passwordHasher = passwordHasher;
+        _currentCustomer = currentCustomer;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -33,6 +42,8 @@ internal sealed class CustomerService : ICustomerService
             customer.DocumentNumber,
             customer.Gender,
             customer.MonthlyIncome,
+            customer.Password,
+            _passwordHasher,
             _timeProvider.GetUtcNow().UtcDateTime);
 
         var saved = await _customerRepository.AddCustomerAsync(entity, cancellationToken);
@@ -45,6 +56,7 @@ internal sealed class CustomerService : ICustomerService
     {
         var customer = await _customerRepository.GetCustomerByIdAsync(customerId, cancellationToken)
             ?? throw new NotFoundException("Customer", customerId);
+        _currentCustomer.EnsureIs(customerId);
 
         return customer.ToDto();
     }

@@ -34,4 +34,9 @@ public sealed class CreateCustomerDto
     /// <summary>Declared monthly income. Cannot be negative.</summary>
     [Range(0, double.MaxValue, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.MonthlyIncomeRange))]
     public decimal MonthlyIncome { get; init; }
+
+    /// <summary>Login password, between 8 and 128 characters. Stored only as a hash.</summary>
+    [Required(AllowEmptyStrings = false, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
+    [StringLength(Customer.MaxPasswordLength, MinimumLength = Customer.MinPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordLength))]
+    public required string Password { get; init; }
 }

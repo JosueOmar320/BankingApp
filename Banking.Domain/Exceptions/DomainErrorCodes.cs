@@ -23,6 +23,9 @@ public static class DomainErrorCodes
     /// <summary>A money amount has more decimals than allowed. Arguments: allowed decimals.</summary>
     public const string AmountTooManyDecimals = nameof(AmountTooManyDecimals);
 
+    /// <summary>A transfer names the same account as source and destination.</summary>
+    public const string SameAccountTransfer = nameof(SameAccountTransfer);
+
     /// <summary>The interest to credit rounds to zero.</summary>
     public const string InterestRoundsToZero = nameof(InterestRoundsToZero);
 

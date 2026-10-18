@@ -72,6 +72,20 @@ public class ErrorCodeTests
     }
 
     [Test]
+    public void TransferTo_SameAccount_ExposesSameAccountTransferCode()
+    {
+        var account = TestData.Account();
+
+        var ex = Assert.Throws<DomainException>(() => account.TransferTo(account, 1m, TestData.Now));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Code, Is.EqualTo(DomainErrorCodes.SameAccountTransfer));
+            Assert.That(ex.MessageArguments, Is.Empty);
+        });
+    }
+
+    [Test]
     public void DomainException_WithoutCode_FallsBackToBusinessRuleViolated()
     {
         var ex = new DomainException("Anything.");

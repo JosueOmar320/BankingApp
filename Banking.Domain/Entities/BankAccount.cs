@@ -1,6 +1,7 @@
 using Banking.Domain.Enums;
 using Banking.Domain.Exceptions;
 using Banking.Domain.Rules;
+using Banking.Domain.ValueObjects;
 
 namespace Banking.Domain.Entities;
 
@@ -108,9 +109,35 @@ public class BankAccount
         return Post(TransactionType.Interest, interest, atUtc);
     }
 
+    /// <summary>
+    /// Moves money to another account: a <see cref="TransactionType.TransferOut"/> here and a
+    /// <see cref="TransactionType.TransferIn"/> there, recorded at the same instant. Both accounts
+    /// bump their version, so the two sides are saved together or not at all.
+    /// </summary>
+    /// <exception cref="DomainException">The destination is this account, or the amount is not positive or has more than two decimals.</exception>
+    /// <exception cref="InsufficientFundsException">The amount exceeds this account's balance.</exception>
+    public Transfer TransferTo(BankAccount destination, decimal amount, DateTime atUtc)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        if (ReferenceEquals(destination, this) || string.Equals(destination.AccountNumber, AccountNumber, StringComparison.Ordinal))
+        {
+            throw new DomainException(DomainErrorCodes.SameAccountTransfer, "The source and destination accounts of a transfer must be different.");
+        }
+
+        EnsureValidAmount(amount);
+        if (amount > Balance)
+        {
+            throw new InsufficientFundsException(Balance, amount);
+        }
+
+        var debit = Post(TransactionType.TransferOut, amount, atUtc);
+        var credit = destination.Post(TransactionType.TransferIn, amount, atUtc);
+        return new Transfer(debit, credit);
+    }
+
     private Transaction Post(TransactionType type, decimal amount, DateTime atUtc)
     {
-        Balance = type == TransactionType.Withdrawal ? Balance - amount : Balance + amount;
+        Balance = type.IsDebit() ? Balance - amount : Balance + amount;
         Version++;
 
         var transaction = new Transaction(type, amount, Balance, atUtc);

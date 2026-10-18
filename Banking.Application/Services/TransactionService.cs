@@ -50,6 +50,30 @@ internal sealed class TransactionService : ITransactionService
         return ApplyAsync(request.AccountNumber, account => account.ApplyInterest(Now()), cancellationToken);
     }
 
+    public async Task<TransferResponseDto> TransferAsync(TransferRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        // The source must be the caller's (404/403); the destination only has to exist (404).
+        var source = await LoadAccountAsync(request.SourceAccountNumber, cancellationToken);
+        var destination = await _bankAccountRepository.GetByAccountNumberAsync(request.DestinationAccountNumber, cancellationToken)
+            ?? throw new NotFoundException("Account", request.DestinationAccountNumber);
+
+        var transfer = source.TransferTo(destination, request.Amount, Now());
+
+        await _bankAccountRepository.SaveTransferAsync(source, destination, cancellationToken);
+
+        Log.TransferApplied(_logger, request.Amount, source.BankAccountId, destination.BankAccountId, source.Balance);
+
+        return new TransferResponseDto(
+            transfer.Debit.TransactionId,
+            source.AccountNumber,
+            destination.AccountNumber,
+            request.Amount,
+            SourceBalanceAfter: source.Balance,
+            transfer.Debit.TransactionDate);
+    }
+
     public async Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, LedgerPageRequestDto page, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(page);
@@ -61,13 +85,17 @@ internal sealed class TransactionService : ITransactionService
         var deposits = totals.Of(TransactionType.Deposit);
         var withdrawals = totals.Of(TransactionType.Withdrawal);
         var interest = totals.Of(TransactionType.Interest);
+        var transfersIn = totals.Of(TransactionType.TransferIn);
+        var transfersOut = totals.Of(TransactionType.TransferOut);
 
         return new AccountTransactionSummaryDto(
             account.AccountNumber,
-            StartingBalance: account.Balance + withdrawals - deposits - interest,
+            StartingBalance: account.Balance + withdrawals + transfersOut - deposits - interest - transfersIn,
             TotalDeposits: deposits,
             TotalWithdrawals: withdrawals,
             TotalInterest: interest,
+            TotalTransfersIn: transfersIn,
+            TotalTransfersOut: transfersOut,
             FinalBalance: account.Balance,
             Transactions: ledgerPage.Transactions.Select(t => t.ToSummaryDto()).ToList(),
             Page: new PageInfoDto(ledgerPage.Page, ledgerPage.PageSize, ledgerPage.TotalCount, ledgerPage.TotalPages));

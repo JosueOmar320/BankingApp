@@ -25,17 +25,19 @@ No database file is checked in: the SQLite database is created and migrated auto
 - Open bank accounts with an opening deposit
 - Check account details and balance
 - Deposits, withdrawals and interest application
-- Transaction history with totals and final balance
+- **Transfers** between accounts, even across customers, recorded on both ledgers in one transaction
+- Paginated transaction history with totals and final balance
 - Business rules enforced in the domain model:
   - opening deposit of at least **10.00**
   - amounts must be positive with at most **two decimals**
-  - a withdrawal can never exceed the available balance
+  - a withdrawal or transfer can never exceed the available balance, and a transfer needs two different accounts
   - the **interest rate is fixed at 10%** for every account (rounded to cents)
   - one customer per identification document
 - Every balance change and its ledger entry are saved **atomically**, and accounts carry an **optimistic concurrency
   token** so two simultaneous withdrawals can never overdraw an account (the loser gets `409 Conflict` and can retry)
 - Passwords stored only as **PBKDF2 hashes** (ASP.NET Core Identity's hasher); login never reveals which credential was wrong
-- Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response, including `401`/`403`
+- Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response, including `401`/`403`/`429`, with the request's correlation id
+- **Rate limits** on login, registration and money operations (`429` + `Retry-After`), and an `X-Correlation-Id` on every response
 - Error messages in **English or Spanish** (`Accept-Language`), each with a stable `code` so clients never parse text
 - Swagger UI with XML documentation and an **Authorize** button for the bearer token, `/health` endpoint, structured logging with source-generated log messages
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
@@ -110,11 +112,16 @@ Key design decisions:
 | `POST` | `/api/Transaction/Deposit`                 | owner    | `{ accountNumber, amount }`            | Deposit                                       |
 | `POST` | `/api/Transaction/Withdrawal`              | owner    | `{ accountNumber, amount }`            | Withdraw                                      |
 | `POST` | `/api/Transaction/Apply-Interest`          | owner    | `{ accountNumber }`                    | Credit 10% interest on the balance            |
+| `POST` | `/api/Transaction/Transfer`                | owner    | `{ sourceAccountNumber, destinationAccountNumber, amount }` | Move money from your account to any other account |
 | `GET`  | `/api/Transaction/{accountNumber}/summary` | owner    | `?page=1&pageSize=50`                  | Ledger totals, final balance and one page of transactions |
 | `GET`  | `/health`                                  | public   |                                        | Liveness check                                |
 
 *own* / *owner*: a bearer token is required, and the customer or account must belong to the authenticated customer
 (`401` without a valid token, `403` for someone else's data).
+
+A transfer debits the caller's source account (`TransferOut`) and credits the destination (`TransferIn`) in one database
+transaction; the destination may belong to another customer and only has to exist. Both accounts use optimistic
+concurrency, so a transfer that races with another change to either account is rejected with `409` and can be retried.
 
 The summary is paginated: the totals (`totalDeposits`, `totalWithdrawals`, `totalInterest`, `finalBalance`) always cover
 the whole ledger, while `transactions` holds one page (oldest first) and `page` says where it sits:
@@ -125,6 +132,8 @@ the whole ledger, while `transactions` holds one page (oldest first) and `page` 
   "totalDeposits": 750.00,
   "totalWithdrawals": 100.00,
   "totalInterest": 65.00,
+  "totalTransfersIn": 0.00,
+  "totalTransfersOut": 0.00,
   "finalBalance": 715.00,
   "transactions": [ { "transactionId": 3, "transactionType": "Withdrawal", "amount": 100.00, "balanceAfter": 650.00, "transactionDate": "…" } ],
   "page": { "number": 2, "size": 2, "totalItems": 4, "totalPages": 2 }
@@ -203,7 +212,7 @@ All errors use `application/problem+json`:
 | Status | When                                                                                   | `code`                                                                                   |
 | ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `400`  | Invalid payload (`ValidationProblemDetails` with an `errors` map)                      | `ValidationFailed`                                                                       |
-| `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `BirthDateInFuture`, `PasswordTooShort`, … (see `DomainErrorCodes`) |
+| `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `SameAccountTransfer`, `BirthDateInFuture`, `PasswordTooShort`, … (see `DomainErrorCodes`) |
 | `401`  | No valid bearer token (missing, expired or tampered; `WWW-Authenticate: Bearer` is set), or wrong login credentials | `AuthenticationRequired`, `InvalidCredentials`                      |
 | `403`  | The account or customer belongs to another customer                                    | `AccountAccessDenied`, `CustomerAccessDenied`                                            |
 | `404`  | Customer or account does not exist                                                     | `CustomerNotFound`, `AccountNotFound`                                                    |

@@ -45,9 +45,9 @@ public class TransactionServiceTests
         _accounts.Verify(a => a.UpdateBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private BankAccount ArrangeAccount(decimal initialDeposit = 100m, int customerId = 1)
+    private BankAccount ArrangeAccount(decimal initialDeposit = 100m, int customerId = 1, string accountNumber = "1234567890")
     {
-        var account = TestData.Account(customerId, initialDeposit);
+        var account = TestData.Account(customerId, initialDeposit, accountNumber);
         _accounts.Setup(a => a.GetByAccountNumberAsync(account.AccountNumber, It.IsAny<CancellationToken>())).ReturnsAsync(account);
         _accounts.Setup(a => a.UpdateBankAccountAsync(account, It.IsAny<CancellationToken>())).ReturnsAsync(account);
         return account;
@@ -210,6 +210,92 @@ public class TransactionServiceTests
             Assert.That(summary.Transactions, Has.Count.EqualTo(1));
             Assert.That(summary.StartingBalance, Is.EqualTo(100m));
             Assert.That(summary.FinalBalance, Is.EqualTo(120m));
+        });
+    }
+
+    [Test]
+    public async Task TransferAsync_MovesMoneyAndSavesBothAccountsInOneCall()
+    {
+        var source = ArrangeAccount(100m, customerId: 1, accountNumber: "1000000001");
+        var destination = ArrangeAccount(20m, customerId: 2, accountNumber: "1000000002");
+        _accounts.Setup(a => a.SaveTransferAsync(source, destination, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var result = await _service.TransferAsync(new TransferRequestDto { SourceAccountNumber = "1000000001", DestinationAccountNumber = "1000000002", Amount = 30m });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SourceAccountNumber, Is.EqualTo("1000000001"));
+            Assert.That(result.DestinationAccountNumber, Is.EqualTo("1000000002"));
+            Assert.That(result.Amount, Is.EqualTo(30m));
+            Assert.That(result.SourceBalanceAfter, Is.EqualTo(70m));
+            Assert.That(result.TransactionDate, Is.EqualTo(TestData.Now));
+            Assert.That(destination.Balance, Is.EqualTo(50m));
+        });
+        _accounts.Verify(a => a.SaveTransferAsync(source, destination, It.IsAny<CancellationToken>()), Times.Once);
+        _accounts.Verify(a => a.UpdateBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public void TransferAsync_ThrowsForbidden_WhenTheSourceBelongsToAnotherCustomer()
+    {
+        var source = ArrangeAccount(100m, customerId: 2, accountNumber: "1000000001");
+        ArrangeAccount(20m, customerId: 1, accountNumber: "1000000002");
+
+        var ex = Assert.ThrowsAsync<ForbiddenException>(() => _service.TransferAsync(new TransferRequestDto { SourceAccountNumber = "1000000001", DestinationAccountNumber = "1000000002", Amount = 30m }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(source.Balance, Is.EqualTo(100m));
+        });
+        _accounts.Verify(a => a.SaveTransferAsync(It.IsAny<BankAccount>(), It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public void TransferAsync_ThrowsNotFound_WhenTheDestinationDoesNotExist()
+    {
+        ArrangeAccount(100m, customerId: 1, accountNumber: "1000000001");
+        _accounts.Setup(a => a.GetByAccountNumberAsync("0000000000", It.IsAny<CancellationToken>())).ReturnsAsync((BankAccount?)null);
+
+        var ex = Assert.ThrowsAsync<NotFoundException>(() => _service.TransferAsync(new TransferRequestDto { SourceAccountNumber = "1000000001", DestinationAccountNumber = "0000000000", Amount = 30m }));
+
+        Assert.That(ex!.Code, Is.EqualTo(ApplicationErrorCodes.AccountNotFound));
+        _accounts.Verify(a => a.SaveTransferAsync(It.IsAny<BankAccount>(), It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public void TransferAsync_ThrowsSameAccountTransfer_WhenBothNumbersMatch()
+    {
+        var account = ArrangeAccount(100m, customerId: 1, accountNumber: "1000000001");
+
+        var ex = Assert.ThrowsAsync<DomainException>(() => _service.TransferAsync(new TransferRequestDto { SourceAccountNumber = "1000000001", DestinationAccountNumber = "1000000001", Amount = 30m }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Code, Is.EqualTo(DomainErrorCodes.SameAccountTransfer));
+            Assert.That(account.Balance, Is.EqualTo(100m));
+        });
+    }
+
+    [Test]
+    public async Task GetAccountTransactionSummaryAsync_IncludesTransfersInTheTotalsAndStartingBalance()
+    {
+        // Ledger: open 100, transfer out 30, transfer in 5 -> balance 75.
+        var account = TestData.Account(initialDeposit: 100m, accountNumber: "1000000001");
+        var other = TestData.Account(customerId: 2, initialDeposit: 50m, accountNumber: "1000000002");
+        account.TransferTo(other, 30m, TestData.Now.AddDays(1));
+        other.TransferTo(account, 5m, TestData.Now.AddDays(2));
+        ArrangeLedger(account, page: 1, pageSize: 10);
+
+        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber, new LedgerPageRequestDto { PageSize = 10 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.TotalTransfersOut, Is.EqualTo(30m));
+            Assert.That(summary.TotalTransfersIn, Is.EqualTo(5m));
+            Assert.That(summary.FinalBalance, Is.EqualTo(75m));
+            Assert.That(summary.StartingBalance, Is.Zero);
+            Assert.That(summary.Transactions.Select(t => t.TransactionType), Is.EqualTo(new List<TransactionType> { TransactionType.Deposit, TransactionType.TransferOut, TransactionType.TransferIn }));
         });
     }
 

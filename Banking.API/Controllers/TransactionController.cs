@@ -76,6 +76,28 @@ public class TransactionController : ControllerBase
     public async Task<ActionResult<TransactionResponseDto>> ApplyInterest(ApplyInterestRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.ApplyInterestAsync(request, cancellationToken));
 
+    /// <summary>Moves money from one of the caller's accounts to any other account.</summary>
+    /// <remarks>
+    /// The source must belong to the authenticated customer; the destination may be anyone's. Both ledgers
+    /// are updated in one transaction: a <c>TransferOut</c> on the source and a <c>TransferIn</c> on the destination.
+    /// </remarks>
+    /// <param name="request">Source, destination and amount.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The transfer and the new source balance.</response>
+    /// <response code="400">The payload is invalid, both accounts are the same, the amount violates a business rule or funds are insufficient.</response>
+    /// <response code="404">The source or the destination account does not exist.</response>
+    /// <response code="409">An account was modified concurrently; retry the request.</response>
+    /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
+    [HttpPost("Transfer")]
+    [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
+    [ProducesResponseType(typeof(TransferResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<TransferResponseDto>> Transfer(TransferRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _transactionService.TransferAsync(request, cancellationToken));
+
     /// <summary>Returns the totals of an account's ledger, the current balance and one page of transactions.</summary>
     /// <remarks>
     /// Totals cover the whole ledger; <c>transactions</c> holds only the requested page (oldest first) and

@@ -145,4 +145,7 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>Se superó el límite de solicitudes. Espere los segundos indicados en el encabezado Retry-After e intente de nuevo.</value>
   </data>
+  <data name="SameAccountTransfer" xml:space="preserve">
+    <value>Las cuentas de origen y destino de una transferencia deben ser distintas.</value>
+  </data>
 </root>

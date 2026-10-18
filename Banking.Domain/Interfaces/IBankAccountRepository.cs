@@ -19,4 +19,8 @@ public interface IBankAccountRepository
     /// <summary>Saves the account's new balance and any transactions it recorded, atomically.</summary>
     /// <exception cref="ConcurrencyConflictException">The account changed since it was read.</exception>
     Task<BankAccount> UpdateBankAccountAsync(BankAccount account, CancellationToken cancellationToken = default);
+
+    /// <summary>Saves both sides of a transfer (balances and ledger entries) in one unit of work.</summary>
+    /// <exception cref="ConcurrencyConflictException">Either account changed since it was read; nothing is saved.</exception>
+    Task SaveTransferAsync(BankAccount source, BankAccount destination, CancellationToken cancellationToken = default);
 }

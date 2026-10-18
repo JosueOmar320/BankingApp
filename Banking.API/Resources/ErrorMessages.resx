@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Neutral (English) texts for problem responses. Keys are problem title keys (Title.*) and error codes. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title.NotFound" xml:space="preserve">
+    <value>Resource not found</value>
+  </data>
+  <data name="Title.DuplicateDocumentNumber" xml:space="preserve">
+    <value>Duplicate document number</value>
+  </data>
+  <data name="Title.ConcurrencyConflict" xml:space="preserve">
+    <value>Concurrent modification</value>
+  </data>
+  <data name="Title.InsufficientFunds" xml:space="preserve">
+    <value>Insufficient funds</value>
+  </data>
+  <data name="Title.BusinessRuleViolated" xml:space="preserve">
+    <value>Business rule violated</value>
+  </data>
+  <data name="Title.ValidationFailed" xml:space="preserve">
+    <value>One or more validation errors occurred.</value>
+  </data>
+  <data name="Title.RequestCancelled" xml:space="preserve">
+    <value>Request cancelled</value>
+  </data>
+  <data name="Title.UnexpectedError" xml:space="preserve">
+    <value>An unexpected error occurred</value>
+  </data>
+  <data name="BusinessRuleViolated" xml:space="preserve">
+    <value>The operation violates a business rule.</value>
+  </data>
+  <data name="InsufficientFunds" xml:space="preserve">
+    <value>Insufficient funds: the available balance is {0:0.00} and {1:0.00} was requested.</value>
+  </data>
+  <data name="DepositBelowMinimum" xml:space="preserve">
+    <value>The initial deposit must be at least {0:0.00}.</value>
+  </data>
+  <data name="AmountNotPositive" xml:space="preserve">
+    <value>The amount must be greater than zero.</value>
+  </data>
+  <data name="AmountTooManyDecimals" xml:space="preserve">
+    <value>The amount cannot have more than {0} decimal places.</value>
+  </data>
+  <data name="InterestRoundsToZero" xml:space="preserve">
+    <value>Interest cannot be applied because the resulting amount is zero.</value>
+  </data>
+  <data name="AccountNumberRequired" xml:space="preserve">
+    <value>Account number is required.</value>
+  </data>
+  <data name="CustomerRequired" xml:space="preserve">
+    <value>A valid customer is required to open an account.</value>
+  </data>
+  <data name="FirstNameRequired" xml:space="preserve">
+    <value>First name is required.</value>
+  </data>
+  <data name="FirstNameTooLong" xml:space="preserve">
+    <value>First name cannot be longer than {0} characters.</value>
+  </data>
+  <data name="LastNameTooLong" xml:space="preserve">
+    <value>Last name cannot be longer than {0} characters.</value>
+  </data>
+  <data name="DocumentNumberRequired" xml:space="preserve">
+    <value>Document number is required.</value>
+  </data>
+  <data name="DocumentNumberTooLong" xml:space="preserve">
+    <value>Document number cannot be longer than {0} characters.</value>
+  </data>
+  <data name="InvalidGender" xml:space="preserve">
+    <value>Gender must be M, F or O.</value>
+  </data>
+  <data name="BirthDateInFuture" xml:space="preserve">
+    <value>Birth date cannot be in the future.</value>
+  </data>
+  <data name="NegativeMonthlyIncome" xml:space="preserve">
+    <value>Monthly income cannot be negative.</value>
+  </data>
+  <data name="DuplicateDocumentNumber" xml:space="preserve">
+    <value>A customer with document number '{0}' already exists.</value>
+  </data>
+  <data name="ConcurrencyConflict" xml:space="preserve">
+    <value>Account '{0}' was modified by another operation. Please retry.</value>
+  </data>
+  <data name="AccountNumberTaken" xml:space="preserve">
+    <value>Account number '{0}' was taken by a concurrent request. Please retry.</value>
+  </data>
+  <data name="CustomerNotFound" xml:space="preserve">
+    <value>Customer '{0}' was not found.</value>
+  </data>
+  <data name="AccountNotFound" xml:space="preserve">
+    <value>Account '{0}' was not found.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>The requested resource was not found.</value>
+  </data>
+  <data name="RequestCancelled" xml:space="preserve">
+    <value>The request was cancelled by the client.</value>
+  </data>
+</root>

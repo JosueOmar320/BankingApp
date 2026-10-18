@@ -30,6 +30,7 @@ sample accounts, so you only need to run the API.
 - Every balance change and its ledger entry are saved **atomically**, and accounts carry an **optimistic concurrency
   token** so two simultaneous withdrawals can never overdraw an account (the loser gets `409 Conflict` and can retry)
 - Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response
+- Error messages in **English or Spanish** (`Accept-Language`), each with a stable `code` so clients never parse text
 - Swagger UI with XML documentation, `/health` endpoint, structured logging with source-generated log messages
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
 - GitHub Actions CI: format check, build with warnings as errors, tests and NuGet vulnerability audit
@@ -42,10 +43,10 @@ The solution follows **Clean Architecture**, with dependencies pointing inward:
 
 | Project                  | Responsibility                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `Banking.Domain`         | Entities with behaviour (`BankAccount` is the aggregate that owns the ledger), rules, domain exceptions, repository interfaces. No framework dependencies. |
-| `Banking.Application`    | Use cases (services), request/response DTOs, `NotFoundException`                                 |
+| `Banking.Domain`         | Entities with behaviour (`BankAccount` is the aggregate that owns the ledger), rules, domain exceptions with stable error codes, repository interfaces. No framework dependencies. |
+| `Banking.Application`    | Use cases (services), request/response DTOs with localized validation messages, `NotFoundException` |
 | `Banking.Infrastructure` | EF Core `DbContext`, Fluent API configurations, SQLite migrations, repositories, start-up migration and dev seeding |
-| `Banking.API`            | Controllers, global exception handler (problem details), Swagger, composition root               |
+| `Banking.API`            | Controllers, global exception handler (problem details), localization (`Accept-Language`, `.resx`), Swagger, composition root |
 | `Banking.Tests`          | Domain, service, repository and HTTP integration tests                                           |
 
 Key design decisions:
@@ -58,6 +59,10 @@ Key design decisions:
   internals. Controllers stay free of `try/catch`.
 - **Persistence concerns stay in Infrastructure.** Entities carry no data annotations; mapping, indexes, value
   conversions and the concurrency token live in `IEntityTypeConfiguration` classes.
+- **The domain speaks in codes, the API speaks in languages.** Domain and application exceptions implement
+  `IHasErrorCode`: a stable code (`InsufficientFunds`, `DepositBelowMinimum`, `CustomerNotFound`…) plus the values the
+  message needs. Only `GlobalExceptionHandler` turns a code into text, through `IStringLocalizer` and `.resx` files, so
+  the inner layers never depend on localization.
 
 ## Endpoints
 
@@ -87,16 +92,77 @@ All errors use `application/problem+json`:
   "title": "Insufficient funds",
   "status": 400,
   "detail": "Insufficient funds: the available balance is 20.00 and 20.01 was requested.",
-  "instance": "/api/Transaction/Withdrawal"
+  "instance": "/api/Transaction/Withdrawal",
+  "code": "InsufficientFunds"
 }
 ```
 
-| Status | When                                                                                   |
-| ------ | -------------------------------------------------------------------------------------- |
-| `400`  | Invalid payload (`ValidationProblemDetails` with an `errors` map) or business rule violated |
-| `404`  | Customer or account does not exist                                                     |
-| `409`  | Duplicate document number, or the account changed concurrently (retry the request)    |
-| `500`  | Unexpected error (details are logged, never returned)                                  |
+| Status | When                                                                                   | `code`                                                                                   |
+| ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `400`  | Invalid payload (`ValidationProblemDetails` with an `errors` map)                      | `ValidationFailed`                                                                       |
+| `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `BirthDateInFuture`, … (see `DomainErrorCodes`) |
+| `404`  | Customer or account does not exist                                                     | `CustomerNotFound`, `AccountNotFound`                                                    |
+| `409`  | Duplicate document number, or the account changed concurrently (retry the request)    | `DuplicateDocumentNumber`, `ConcurrencyConflict`, `AccountNumberTaken`                   |
+| `500`  | Unexpected error (details are logged, never returned)                                  | `UnexpectedError`                                                                        |
+
+`code` is stable across languages and releases; `title` and `detail` are human-readable and may change.
+
+### Localization
+
+Error messages (`title`, `detail` and the validation `errors`) are returned in the language of the `Accept-Language`
+header. Supported cultures are `en-US` (default) and `es-NI`; plain `en`/`es` and other regional variants (`en-GB`,
+`es-MX`…) map to them, and the chosen culture is echoed in the `Content-Language` response header. Successful
+responses are plain JSON and do not change with the language.
+
+```bash
+curl -s -X POST http://localhost:5200/api/Transaction/Withdrawal \
+  -H "Content-Type: application/json" -H "Accept-Language: en" \
+  -d '{ "accountNumber": "1000000002", "amount": 100000 }'
+```
+
+```json
+{
+  "title": "Insufficient funds",
+  "status": 400,
+  "detail": "Insufficient funds: the available balance is 800.00 and 100000.00 was requested.",
+  "code": "InsufficientFunds"
+}
+```
+
+```bash
+curl -s -X POST http://localhost:5200/api/Transaction/Withdrawal \
+  -H "Content-Type: application/json" -H "Accept-Language: es" \
+  -d '{ "accountNumber": "1000000002", "amount": 100000 }'
+```
+
+```json
+{
+  "title": "Fondos insuficientes",
+  "status": 400,
+  "detail": "Fondos insuficientes: el saldo disponible es 800.00 y se solicitó 100000.00.",
+  "code": "InsufficientFunds"
+}
+```
+
+```bash
+curl -s http://localhost:5200/api/Customer/999999 -H "Accept-Language: es-NI"
+```
+
+```json
+{
+  "title": "Recurso no encontrado",
+  "status": 404,
+  "detail": "No se encontró el cliente '999999'.",
+  "code": "CustomerNotFound"
+}
+```
+
+Texts live in two pairs of `.resx` files: [`Banking.API/Resources/ErrorMessages.resx`](Banking.API/Resources/ErrorMessages.resx)
+(+ `.es.resx`) for problem titles and details, keyed by error code, and
+[`Banking.Application/Resources/ValidationMessages.resx`](Banking.Application/Resources/ValidationMessages.resx)
+(+ `.es.resx`) for the DataAnnotations messages of the request DTOs. A test checks that every key the code uses exists
+in both languages with the same placeholders, so adding a language means adding one `.resx` per pair and the culture
+to `SupportedCultures`.
 
 ### Sample data (Development only)
 
@@ -169,7 +235,7 @@ dotnet ef migrations add <Name> --project Banking.Infrastructure --startup-proje
 | Domain         | Opening deposit rules, amount validation, insufficient funds, interest rounding, version bumps           |
 | Application    | Services with mocked repositories: mapping, not-found, retry of account-number generation, summaries     |
 | Infrastructure | Real SQLite: atomic save of balance + ledger, unique document/account numbers, **concurrency conflict**, migrations in sync with the model |
-| API            | In-process HTTP tests: status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw** |
+| API            | In-process HTTP tests: status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw**, the same error in English and Spanish, `.resx` keys in sync |
 
 ```bash
 dotnet test

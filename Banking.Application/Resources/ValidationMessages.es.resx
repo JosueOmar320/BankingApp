@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Spanish DataAnnotations messages. Every key here must also exist in ValidationMessages.resx. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AccountNumberRequired" xml:space="preserve">
+    <value>El número de cuenta es obligatorio.</value>
+  </data>
+  <data name="AccountNumberLength" xml:space="preserve">
+    <value>El número de cuenta debe tener entre {2} y {1} caracteres.</value>
+  </data>
+  <data name="AmountRange" xml:space="preserve">
+    <value>El monto debe ser mayor que cero.</value>
+  </data>
+  <data name="CustomerIdRange" xml:space="preserve">
+    <value>El identificador del cliente debe ser un entero positivo.</value>
+  </data>
+  <data name="InitialDepositRange" xml:space="preserve">
+    <value>El depósito inicial debe ser mayor que cero.</value>
+  </data>
+  <data name="FirstNameRequired" xml:space="preserve">
+    <value>El nombre es obligatorio.</value>
+  </data>
+  <data name="FirstNameLength" xml:space="preserve">
+    <value>El nombre debe tener entre {2} y {1} caracteres.</value>
+  </data>
+  <data name="LastNameLength" xml:space="preserve">
+    <value>El apellido no puede tener más de {1} caracteres.</value>
+  </data>
+  <data name="BirthDateRequired" xml:space="preserve">
+    <value>La fecha de nacimiento es obligatoria.</value>
+  </data>
+  <data name="DocumentNumberRequired" xml:space="preserve">
+    <value>El número de documento es obligatorio.</value>
+  </data>
+  <data name="DocumentNumberLength" xml:space="preserve">
+    <value>El número de documento debe tener entre {2} y {1} caracteres.</value>
+  </data>
+  <data name="GenderRequired" xml:space="preserve">
+    <value>El género es obligatorio.</value>
+  </data>
+  <data name="GenderInvalid" xml:space="preserve">
+    <value>El género debe ser M, F u O.</value>
+  </data>
+  <data name="MonthlyIncomeRange" xml:space="preserve">
+    <value>El ingreso mensual no puede ser negativo.</value>
+  </data>
+</root>

@@ -57,6 +57,20 @@ Content-Type: application/json
   "accountNumber": "1000000001"
 }
 
+### Withdrawal above the balance, error in Spanish (Accept-Language: en for English)
+POST {{host}}/api/Transaction/Withdrawal
+Content-Type: application/json
+Accept-Language: es
+
+{
+  "accountNumber": "1000000001",
+  "amount": 100000
+}
+
+### Unknown customer, error in Spanish
+GET {{host}}/api/Customer/999999
+Accept-Language: es-NI
+
 ### Ledger summary
 GET {{host}}/api/Transaction/1000000001/summary
 

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Spanish texts for problem responses. Every key here must also exist in ErrorMessages.resx. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title.NotFound" xml:space="preserve">
+    <value>Recurso no encontrado</value>
+  </data>
+  <data name="Title.DuplicateDocumentNumber" xml:space="preserve">
+    <value>Número de documento duplicado</value>
+  </data>
+  <data name="Title.ConcurrencyConflict" xml:space="preserve">
+    <value>Modificación concurrente</value>
+  </data>
+  <data name="Title.InsufficientFunds" xml:space="preserve">
+    <value>Fondos insuficientes</value>
+  </data>
+  <data name="Title.BusinessRuleViolated" xml:space="preserve">
+    <value>Regla de negocio incumplida</value>
+  </data>
+  <data name="Title.ValidationFailed" xml:space="preserve">
+    <value>Se produjeron uno o más errores de validación.</value>
+  </data>
+  <data name="Title.RequestCancelled" xml:space="preserve">
+    <value>Solicitud cancelada</value>
+  </data>
+  <data name="Title.UnexpectedError" xml:space="preserve">
+    <value>Ocurrió un error inesperado</value>
+  </data>
+  <data name="BusinessRuleViolated" xml:space="preserve">
+    <value>La operación incumple una regla de negocio.</value>
+  </data>
+  <data name="InsufficientFunds" xml:space="preserve">
+    <value>Fondos insuficientes: el saldo disponible es {0:0.00} y se solicitó {1:0.00}.</value>
+  </data>
+  <data name="DepositBelowMinimum" xml:space="preserve">
+    <value>El depósito inicial debe ser de al menos {0:0.00}.</value>
+  </data>
+  <data name="AmountNotPositive" xml:space="preserve">
+    <value>El monto debe ser mayor que cero.</value>
+  </data>
+  <data name="AmountTooManyDecimals" xml:space="preserve">
+    <value>El monto no puede tener más de {0} decimales.</value>
+  </data>
+  <data name="InterestRoundsToZero" xml:space="preserve">
+    <value>No se puede aplicar el interés porque el monto resultante es cero.</value>
+  </data>
+  <data name="AccountNumberRequired" xml:space="preserve">
+    <value>El número de cuenta es obligatorio.</value>
+  </data>
+  <data name="CustomerRequired" xml:space="preserve">
+    <value>Se requiere un cliente válido para abrir una cuenta.</value>
+  </data>
+  <data name="FirstNameRequired" xml:space="preserve">
+    <value>El nombre es obligatorio.</value>
+  </data>
+  <data name="FirstNameTooLong" xml:space="preserve">
+    <value>El nombre no puede tener más de {0} caracteres.</value>
+  </data>
+  <data name="LastNameTooLong" xml:space="preserve">
+    <value>El apellido no puede tener más de {0} caracteres.</value>
+  </data>
+  <data name="DocumentNumberRequired" xml:space="preserve">
+    <value>El número de documento es obligatorio.</value>
+  </data>
+  <data name="DocumentNumberTooLong" xml:space="preserve">
+    <value>El número de documento no puede tener más de {0} caracteres.</value>
+  </data>
+  <data name="InvalidGender" xml:space="preserve">
+    <value>El género debe ser M, F u O.</value>
+  </data>
+  <data name="BirthDateInFuture" xml:space="preserve">
+    <value>La fecha de nacimiento no puede estar en el futuro.</value>
+  </data>
+  <data name="NegativeMonthlyIncome" xml:space="preserve">
+    <value>El ingreso mensual no puede ser negativo.</value>
+  </data>
+  <data name="DuplicateDocumentNumber" xml:space="preserve">
+    <value>Ya existe un cliente con el número de documento '{0}'.</value>
+  </data>
+  <data name="ConcurrencyConflict" xml:space="preserve">
+    <value>La cuenta '{0}' fue modificada por otra operación. Intente de nuevo.</value>
+  </data>
+  <data name="AccountNumberTaken" xml:space="preserve">
+    <value>El número de cuenta '{0}' fue asignado por una solicitud concurrente. Intente de nuevo.</value>
+  </data>
+  <data name="CustomerNotFound" xml:space="preserve">
+    <value>No se encontró el cliente '{0}'.</value>
+  </data>
+  <data name="AccountNotFound" xml:space="preserve">
+    <value>No se encontró la cuenta '{0}'.</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>No se encontró el recurso solicitado.</value>
+  </data>
+  <data name="RequestCancelled" xml:space="preserve">
+    <value>El cliente canceló la solicitud.</value>
+  </data>
+</root>

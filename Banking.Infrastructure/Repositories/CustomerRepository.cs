@@ -31,8 +31,7 @@ public sealed class CustomerRepository : ICustomerRepository
         catch (DbUpdateException ex) when (SqliteErrors.IsUniqueConstraintViolation(ex))
         {
             _context.Entry(customer).State = EntityState.Detached;
-            throw new DuplicateDocumentNumberException(
-                $"A customer with document number '{customer.DocumentNumber}' already exists.", ex);
+            throw DuplicateDocumentNumberException.ForDocumentNumber(customer.DocumentNumber, ex);
         }
 
         return customer;

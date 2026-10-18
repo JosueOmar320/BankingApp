@@ -13,17 +13,20 @@ namespace Banking.Tests.API;
 public sealed class BankingApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _connectionString = $"Data Source=file:banking-tests-{Guid.NewGuid():N}?mode=memory&cache=shared";
+    private readonly string _environment;
     private readonly SqliteConnection _keepAlive;
 
-    public BankingApiFactory()
+    /// <param name="environment">Host environment; "Development" additionally enables Swagger.</param>
+    public BankingApiFactory(string environment = "Testing")
     {
+        _environment = environment;
         _keepAlive = new SqliteConnection(_connectionString);
         _keepAlive.Open();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(_environment);
         builder.UseSetting($"ConnectionStrings:{DependencyInjection.ConnectionStringName}", _connectionString);
         builder.UseSetting("Database:SeedSampleData", "false");
     }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Banking.Application.Resources;
 
 namespace Banking.Application.Dtos;
 
@@ -6,7 +7,7 @@ namespace Banking.Application.Dtos;
 public sealed class ApplyInterestRequestDto
 {
     /// <summary>Account number to operate on.</summary>
-    [Required]
-    [StringLength(32, MinimumLength = 1)]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.AccountNumberRequired))]
+    [StringLength(32, MinimumLength = 1, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.AccountNumberLength))]
     public required string AccountNumber { get; init; }
 }

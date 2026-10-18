@@ -41,8 +41,7 @@ public sealed class BankAccountRepository : IBankAccountRepository
         catch (DbUpdateException ex) when (SqliteErrors.IsUniqueConstraintViolation(ex))
         {
             _context.Entry(account).State = EntityState.Detached;
-            throw new ConcurrencyConflictException(
-                $"Account number '{account.AccountNumber}' was taken by a concurrent request. Please retry.", ex);
+            throw ConcurrencyConflictException.AccountNumberTaken(account.AccountNumber, ex);
         }
 
         return account;
@@ -65,8 +64,7 @@ public sealed class BankAccountRepository : IBankAccountRepository
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            throw new ConcurrencyConflictException(
-                $"Account '{account.AccountNumber}' was modified by another operation. Please retry.", ex);
+            throw ConcurrencyConflictException.ForAccount(account.AccountNumber, ex);
         }
 
         return account;

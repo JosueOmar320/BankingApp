@@ -4,17 +4,34 @@ namespace Banking.Domain.Exceptions;
 public sealed class DuplicateDocumentNumberException : DomainException
 {
     public DuplicateDocumentNumberException()
-        : base("A customer with the same document number already exists.")
+        : base(DomainErrorCodes.DuplicateDocumentNumber, "A customer with the same document number already exists.")
     {
     }
 
     public DuplicateDocumentNumberException(string message)
-        : base(message)
+        : base(DomainErrorCodes.DuplicateDocumentNumber, message)
     {
     }
 
     public DuplicateDocumentNumberException(string message, Exception innerException)
-        : base(message, innerException)
+        : base(DomainErrorCodes.DuplicateDocumentNumber, message, innerException, [])
     {
     }
+
+    private DuplicateDocumentNumberException(string documentNumber, Exception innerException, IReadOnlyList<object?> messageArguments)
+        : base(
+            DomainErrorCodes.DuplicateDocumentNumber,
+            $"A customer with document number '{documentNumber}' already exists.",
+            innerException,
+            messageArguments)
+    {
+        DocumentNumber = documentNumber;
+    }
+
+    /// <summary>The document number that already exists, when known.</summary>
+    public string? DocumentNumber { get; }
+
+    /// <summary>Creates the exception for a specific document number, so the translated message can mention it.</summary>
+    public static DuplicateDocumentNumberException ForDocumentNumber(string documentNumber, Exception innerException)
+        => new(documentNumber, innerException, [documentNumber]);
 }

@@ -3,6 +3,8 @@
   <PropertyGroup>
     <!-- XML docs feed the Swagger UI (DTO descriptions). -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- English texts live in the main assembly; Spanish ones in the es/ satellite assembly. -->
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
   <ItemGroup>

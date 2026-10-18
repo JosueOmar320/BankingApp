@@ -46,23 +46,23 @@ public class Customer
         decimal monthlyIncome,
         DateTime createdAtUtc)
     {
-        firstName = RequireText(firstName, "First name", MaxNameLength);
-        lastName = string.IsNullOrWhiteSpace(lastName) ? null : RequireText(lastName, "Last name", MaxNameLength);
-        documentNumber = RequireText(documentNumber, "Document number", MaxDocumentNumberLength);
+        firstName = RequireText(firstName, "First name", MaxNameLength, DomainErrorCodes.FirstNameRequired, DomainErrorCodes.FirstNameTooLong);
+        lastName = string.IsNullOrWhiteSpace(lastName) ? null : LimitLength(lastName, "Last name", MaxNameLength, DomainErrorCodes.LastNameTooLong);
+        documentNumber = RequireText(documentNumber, "Document number", MaxDocumentNumberLength, DomainErrorCodes.DocumentNumberRequired, DomainErrorCodes.DocumentNumberTooLong);
 
         if (!Enum.IsDefined(gender))
         {
-            throw new DomainException("Gender must be M, F or O.");
+            throw new DomainException(DomainErrorCodes.InvalidGender, "Gender must be M, F or O.");
         }
 
         if (birthDate > DateOnly.FromDateTime(createdAtUtc))
         {
-            throw new DomainException("Birth date cannot be in the future.");
+            throw new DomainException(DomainErrorCodes.BirthDateInFuture, "Birth date cannot be in the future.");
         }
 
         if (monthlyIncome < 0)
         {
-            throw new DomainException("Monthly income cannot be negative.");
+            throw new DomainException(DomainErrorCodes.NegativeMonthlyIncome, "Monthly income cannot be negative.");
         }
 
         return new Customer
@@ -77,17 +77,22 @@ public class Customer
         };
     }
 
-    private static string RequireText(string? value, string field, int maxLength)
+    private static string RequireText(string? value, string field, int maxLength, string requiredCode, string tooLongCode)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new DomainException($"{field} is required.");
+            throw new DomainException(requiredCode, $"{field} is required.");
         }
 
+        return LimitLength(value, field, maxLength, tooLongCode);
+    }
+
+    private static string LimitLength(string value, string field, int maxLength, string tooLongCode)
+    {
         value = value.Trim();
         if (value.Length > maxLength)
         {
-            throw new DomainException($"{field} cannot be longer than {maxLength} characters.");
+            throw new DomainException(tooLongCode, $"{field} cannot be longer than {maxLength} characters.", maxLength);
         }
 
         return value;

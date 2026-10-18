@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- Neutral (English) DataAnnotations messages. Placeholders follow the attribute: {0} = field, {1} = max/upper, {2} = min/lower. -->
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AccountNumberRequired" xml:space="preserve">
+    <value>The account number is required.</value>
+  </data>
+  <data name="AccountNumberLength" xml:space="preserve">
+    <value>The account number must be between {2} and {1} characters long.</value>
+  </data>
+  <data name="AmountRange" xml:space="preserve">
+    <value>The amount must be greater than zero.</value>
+  </data>
+  <data name="CustomerIdRange" xml:space="preserve">
+    <value>The customer identifier must be a positive integer.</value>
+  </data>
+  <data name="InitialDepositRange" xml:space="preserve">
+    <value>The initial deposit must be greater than zero.</value>
+  </data>
+  <data name="FirstNameRequired" xml:space="preserve">
+    <value>The first name is required.</value>
+  </data>
+  <data name="FirstNameLength" xml:space="preserve">
+    <value>The first name must be between {2} and {1} characters long.</value>
+  </data>
+  <data name="LastNameLength" xml:space="preserve">
+    <value>The last name cannot be longer than {1} characters.</value>
+  </data>
+  <data name="BirthDateRequired" xml:space="preserve">
+    <value>The birth date is required.</value>
+  </data>
+  <data name="DocumentNumberRequired" xml:space="preserve">
+    <value>The document number is required.</value>
+  </data>
+  <data name="DocumentNumberLength" xml:space="preserve">
+    <value>The document number must be between {2} and {1} characters long.</value>
+  </data>
+  <data name="GenderRequired" xml:space="preserve">
+    <value>The gender is required.</value>
+  </data>
+  <data name="GenderInvalid" xml:space="preserve">
+    <value>The gender must be M, F or O.</value>
+  </data>
+  <data name="MonthlyIncomeRange" xml:space="preserve">
+    <value>The monthly income cannot be negative.</value>
+  </data>
+</root>

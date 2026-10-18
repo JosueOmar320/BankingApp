@@ -44,18 +44,21 @@ public class BankAccount
     {
         if (string.IsNullOrWhiteSpace(accountNumber))
         {
-            throw new DomainException("Account number is required.");
+            throw new DomainException(DomainErrorCodes.AccountNumberRequired, "Account number is required.");
         }
 
         if (customerId <= 0)
         {
-            throw new DomainException("A valid customer is required to open an account.");
+            throw new DomainException(DomainErrorCodes.CustomerRequired, "A valid customer is required to open an account.");
         }
 
         EnsureValidAmount(initialDeposit);
         if (initialDeposit < AccountRules.MinimumInitialDeposit)
         {
-            throw new DomainException($"The initial deposit must be at least {AccountRules.MinimumInitialDeposit:0.00}.");
+            throw new DomainException(
+                DomainErrorCodes.DepositBelowMinimum,
+                $"The initial deposit must be at least {AccountRules.MinimumInitialDeposit:0.00}.",
+                AccountRules.MinimumInitialDeposit);
         }
 
         var account = new BankAccount
@@ -99,7 +102,7 @@ public class BankAccount
         var interest = Math.Round(Balance * InterestRate, AccountRules.MoneyScale, MidpointRounding.ToEven);
         if (interest <= 0)
         {
-            throw new DomainException("Interest cannot be applied because the resulting amount is zero.");
+            throw new DomainException(DomainErrorCodes.InterestRoundsToZero, "Interest cannot be applied because the resulting amount is zero.");
         }
 
         return Post(TransactionType.Interest, interest, atUtc);
@@ -119,12 +122,15 @@ public class BankAccount
     {
         if (amount <= 0)
         {
-            throw new DomainException("The amount must be greater than zero.");
+            throw new DomainException(DomainErrorCodes.AmountNotPositive, "The amount must be greater than zero.");
         }
 
         if (decimal.Round(amount, AccountRules.MoneyScale) != amount)
         {
-            throw new DomainException($"The amount cannot have more than {AccountRules.MoneyScale} decimal places.");
+            throw new DomainException(
+                DomainErrorCodes.AmountTooManyDecimals,
+                $"The amount cannot have more than {AccountRules.MoneyScale} decimal places.",
+                AccountRules.MoneyScale);
         }
     }
 }

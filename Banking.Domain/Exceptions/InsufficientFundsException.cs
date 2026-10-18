@@ -4,22 +4,26 @@ namespace Banking.Domain.Exceptions;
 public sealed class InsufficientFundsException : DomainException
 {
     public InsufficientFundsException()
-        : base("Insufficient funds.")
+        : base(DomainErrorCodes.InsufficientFunds, "Insufficient funds.")
     {
     }
 
     public InsufficientFundsException(string message)
-        : base(message)
+        : base(DomainErrorCodes.InsufficientFunds, message)
     {
     }
 
     public InsufficientFundsException(string message, Exception innerException)
-        : base(message, innerException)
+        : base(DomainErrorCodes.InsufficientFunds, message, innerException, [])
     {
     }
 
     public InsufficientFundsException(decimal balance, decimal requested)
-        : base($"Insufficient funds: the available balance is {balance:0.00} and {requested:0.00} was requested.")
+        : base(
+            DomainErrorCodes.InsufficientFunds,
+            $"Insufficient funds: the available balance is {balance:0.00} and {requested:0.00} was requested.",
+            balance,
+            requested)
     {
         Balance = balance;
         Requested = requested;

@@ -179,4 +179,90 @@ public class BankAccountTests
 
         Assert.That(account.Version, Is.EqualTo(4));
     }
+
+    [Test]
+    public void TransferTo_DebitsSourceAndCreditsDestinationAtTheSameInstant()
+    {
+        var source = TestData.Account(customerId: 1, initialDeposit: 100m, accountNumber: "1000000001");
+        var destination = TestData.Account(customerId: 2, initialDeposit: 20m, accountNumber: "1000000002");
+        var later = Now.AddMinutes(1);
+
+        var transfer = source.TransferTo(destination, 30.25m, later);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.Balance, Is.EqualTo(69.75m));
+            Assert.That(destination.Balance, Is.EqualTo(50.25m));
+            Assert.That(source.Version, Is.EqualTo(2));
+            Assert.That(destination.Version, Is.EqualTo(2));
+            Assert.That(transfer.Debit.TransactionType, Is.EqualTo(TransactionType.TransferOut));
+            Assert.That(transfer.Debit.Amount, Is.EqualTo(30.25m));
+            Assert.That(transfer.Debit.BalanceAfter, Is.EqualTo(69.75m));
+            Assert.That(transfer.Credit.TransactionType, Is.EqualTo(TransactionType.TransferIn));
+            Assert.That(transfer.Credit.BalanceAfter, Is.EqualTo(50.25m));
+            Assert.That(transfer.Credit.TransactionDate, Is.EqualTo(later));
+            Assert.That(source.Transactions, Does.Contain(transfer.Debit));
+            Assert.That(destination.Transactions, Does.Contain(transfer.Credit));
+        });
+    }
+
+    [Test]
+    public void TransferTo_RejectsTheSameAccount()
+    {
+        var account = TestData.Account(initialDeposit: 100m);
+        var sameNumber = TestData.Account(customerId: 9, initialDeposit: 10m, accountNumber: account.AccountNumber);
+
+        var self = Assert.Throws<DomainException>(() => account.TransferTo(account, 10m, Now));
+        var alias = Assert.Throws<DomainException>(() => account.TransferTo(sameNumber, 10m, Now));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(self!.Code, Is.EqualTo(DomainErrorCodes.SameAccountTransfer));
+            Assert.That(alias!.Code, Is.EqualTo(DomainErrorCodes.SameAccountTransfer));
+            Assert.That(account.Balance, Is.EqualTo(100m));
+            Assert.That(account.Version, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void TransferTo_RejectsAmountAboveBalance_WithoutTouchingEitherAccount()
+    {
+        var source = TestData.Account(initialDeposit: 100m, accountNumber: "1000000001");
+        var destination = TestData.Account(initialDeposit: 20m, accountNumber: "1000000002");
+
+        Assert.Throws<InsufficientFundsException>(() => source.TransferTo(destination, 100.01m, Now));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source.Balance, Is.EqualTo(100m));
+            Assert.That(destination.Balance, Is.EqualTo(20m));
+            Assert.That(source.Version, Is.EqualTo(1));
+            Assert.That(destination.Version, Is.EqualTo(1));
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(-5)]
+    [TestCase(1.005)]
+    public void TransferTo_RejectsInvalidAmounts(decimal amount)
+    {
+        var source = TestData.Account(initialDeposit: 100m, accountNumber: "1000000001");
+        var destination = TestData.Account(initialDeposit: 20m, accountNumber: "1000000002");
+
+        Assert.Throws<DomainException>(() => source.TransferTo(destination, amount, Now));
+        Assert.That(destination.Balance, Is.EqualTo(20m));
+    }
+
+    [Test]
+    public void IsDebit_ReportsTheDirectionOfEveryType()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(TransactionType.Withdrawal.IsDebit(), Is.True);
+            Assert.That(TransactionType.TransferOut.IsDebit(), Is.True);
+            Assert.That(TransactionType.Deposit.IsDebit(), Is.False);
+            Assert.That(TransactionType.Interest.IsDebit(), Is.False);
+            Assert.That(TransactionType.TransferIn.IsDebit(), Is.False);
+        });
+    }
 }

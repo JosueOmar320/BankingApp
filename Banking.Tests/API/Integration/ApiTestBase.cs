@@ -64,7 +64,13 @@ public abstract class ApiTestBase
     protected async Task<BankAccountResponseDto> CreateAccountAsync(decimal initialDeposit = 100m)
     {
         var customer = await CreateCustomerAsync();
-        var response = await Client.PostAsJsonAsync("/api/BankAccount", new CreateBankAccountDto { CustomerId = customer.CustomerId, InitialDeposit = initialDeposit }, Json);
+        return await OpenAccountAsync(customer.CustomerId, initialDeposit);
+    }
+
+    /// <summary>Opens an account for <paramref name="customerId"/>, who must be the customer <see cref="Client"/> currently acts as.</summary>
+    protected async Task<BankAccountResponseDto> OpenAccountAsync(int customerId, decimal initialDeposit = 100m)
+    {
+        var response = await Client.PostAsJsonAsync("/api/BankAccount", new CreateBankAccountDto { CustomerId = customerId, InitialDeposit = initialDeposit }, Json);
 
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<BankAccountResponseDto>(Json))!;

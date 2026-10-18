@@ -1,4 +1,5 @@
 using Banking.Domain.Entities;
+using Banking.Domain.Enums;
 using Banking.Domain.Exceptions;
 using Banking.Infrastructure.Repositories;
 using Banking.Tests.Support;
@@ -122,6 +123,79 @@ public class BankAccountRepositoryTests
             Assert.That(stored.Balance, Is.Zero);
             Assert.That(stored.Version, Is.EqualTo(2));
             Assert.That(transactionCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task SaveTransferAsync_SavesBothBalancesAndBothLedgerEntriesTogether()
+    {
+        await using (var setup = _database.CreateContext())
+        {
+            var repository = new BankAccountRepository(setup);
+            await repository.AddBankAccountAsync(TestData.Account(_customerId, 100m, "1000000001"));
+            await repository.AddBankAccountAsync(TestData.Account(_customerId, 20m, "1000000002"));
+        }
+
+        await using (var context = _database.CreateContext())
+        {
+            var repository = new BankAccountRepository(context);
+            var source = (await repository.GetByAccountNumberAsync("1000000001"))!;
+            var destination = (await repository.GetByAccountNumberAsync("1000000002"))!;
+
+            source.TransferTo(destination, 30m, TestData.Now);
+            await repository.SaveTransferAsync(source, destination);
+        }
+
+        await using var verification = _database.CreateContext();
+        var accounts = await verification.BankAccounts.OrderBy(a => a.AccountNumber).ToListAsync();
+        var entries = await verification.Transactions.Where(t => t.TransactionType == TransactionType.TransferOut || t.TransactionType == TransactionType.TransferIn).ToListAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(accounts[0].Balance, Is.EqualTo(70m));
+            Assert.That(accounts[0].Version, Is.EqualTo(2));
+            Assert.That(accounts[1].Balance, Is.EqualTo(50m));
+            Assert.That(accounts[1].Version, Is.EqualTo(2));
+            Assert.That(entries, Has.Count.EqualTo(2));
+            Assert.That(entries.Single(e => e.TransactionType == TransactionType.TransferOut).BankAccountId, Is.EqualTo(accounts[0].BankAccountId));
+            Assert.That(entries.Single(e => e.TransactionType == TransactionType.TransferIn).BankAccountId, Is.EqualTo(accounts[1].BankAccountId));
+        });
+    }
+
+    [Test]
+    public async Task SaveTransferAsync_RejectsTheWholeTransfer_WhenTheDestinationChangedMeanwhile()
+    {
+        await using (var setup = _database.CreateContext())
+        {
+            var repository = new BankAccountRepository(setup);
+            await repository.AddBankAccountAsync(TestData.Account(_customerId, 100m, "1000000001"));
+            await repository.AddBankAccountAsync(TestData.Account(_customerId, 20m, "1000000002"));
+        }
+
+        await using var transferContext = _database.CreateContext();
+        var transferRepository = new BankAccountRepository(transferContext);
+        var source = (await transferRepository.GetByAccountNumberAsync("1000000001"))!;
+        var destination = (await transferRepository.GetByAccountNumberAsync("1000000002"))!;
+
+        // Someone else deposits into the destination after the transfer loaded it.
+        await using (var other = _database.CreateContext())
+        {
+            var otherRepository = new BankAccountRepository(other);
+            var destinationCopy = (await otherRepository.GetByAccountNumberAsync("1000000002"))!;
+            destinationCopy.Deposit(5m, TestData.Now);
+            await otherRepository.UpdateBankAccountAsync(destinationCopy);
+        }
+
+        source.TransferTo(destination, 30m, TestData.Now);
+        var ex = Assert.ThrowsAsync<ConcurrencyConflictException>(() => transferRepository.SaveTransferAsync(source, destination));
+
+        await using var verification = _database.CreateContext();
+        var storedSource = await verification.BankAccounts.SingleAsync(a => a.AccountNumber == "1000000001");
+        var storedDestination = await verification.BankAccounts.SingleAsync(a => a.AccountNumber == "1000000002");
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.MessageArguments, Is.EqualTo(new object[] { "1000000002" }), "the conflict names the account that changed");
+            Assert.That(storedSource.Balance, Is.EqualTo(100m), "the debit was not saved either");
+            Assert.That(storedDestination.Balance, Is.EqualTo(25m));
         });
     }
 

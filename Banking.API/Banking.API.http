@@ -116,6 +116,28 @@ GET {{host}}/api/Customer/999999
 Accept-Language: es-NI
 Authorization: Bearer {{token}}
 
+### Transfer from Ana's account to Luis' account
+POST {{host}}/api/Transaction/Transfer
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "sourceAccountNumber": "1000000001",
+  "destinationAccountNumber": "1000000002",
+  "amount": 25
+}
+
+### Transfer to the same account: 400 problem with code SameAccountTransfer
+POST {{host}}/api/Transaction/Transfer
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "sourceAccountNumber": "1000000001",
+  "destinationAccountNumber": "1000000001",
+  "amount": 25
+}
+
 ### Ledger summary
 GET {{host}}/api/Transaction/1000000001/summary
 Authorization: Bearer {{token}}

@@ -19,6 +19,9 @@ public sealed class CustomerRepository : ICustomerRepository
     public Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
         => _context.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.CustomerId == customerId, cancellationToken);
 
+    public Task<Customer?> GetCustomerByDocumentNumberAsync(string documentNumber, CancellationToken cancellationToken = default)
+        => _context.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.DocumentNumber == documentNumber, cancellationToken);
+
     public async Task<Customer> AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(customer);

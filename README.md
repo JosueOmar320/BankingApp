@@ -9,15 +9,18 @@
 
 A **Banking API** built with **.NET 8** and **ASP.NET Core Web API**. It manages customers, bank accounts and a
 transaction ledger (deposits, withdrawals and interest), following Clean Architecture with a rich domain model.
+Customers authenticate with a JWT and can only operate their own accounts.
 
 The SQLite database is created and migrated automatically on start-up, and in `Development` it is seeded with two
-sample accounts, so you only need to run the API.
+sample accounts (password `Banking123!`), so you only need to run the API.
 
 ---
 
 ## Features
 
-- Register customers and open bank accounts with an opening deposit
+- Register customers (public sign-up with a password) and log in to obtain a **JWT bearer token**
+- **Authorization per account holder**: every account operation is limited to the authenticated owner (`403` otherwise)
+- Open bank accounts with an opening deposit
 - Check account details and balance
 - Deposits, withdrawals and interest application
 - Transaction history with totals and final balance
@@ -29,9 +32,10 @@ sample accounts, so you only need to run the API.
   - one customer per identification document
 - Every balance change and its ledger entry are saved **atomically**, and accounts carry an **optimistic concurrency
   token** so two simultaneous withdrawals can never overdraw an account (the loser gets `409 Conflict` and can retry)
-- Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response
+- Passwords stored only as **PBKDF2 hashes** (ASP.NET Core Identity's hasher); login never reveals which credential was wrong
+- Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response, including `401`/`403`
 - Error messages in **English or Spanish** (`Accept-Language`), each with a stable `code` so clients never parse text
-- Swagger UI with XML documentation, `/health` endpoint, structured logging with source-generated log messages
+- Swagger UI with XML documentation and an **Authorize** button for the bearer token, `/health` endpoint, structured logging with source-generated log messages
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
 - GitHub Actions CI: format check, build with warnings as errors, tests and NuGet vulnerability audit
 
@@ -43,10 +47,10 @@ The solution follows **Clean Architecture**, with dependencies pointing inward:
 
 | Project                  | Responsibility                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `Banking.Domain`         | Entities with behaviour (`BankAccount` is the aggregate that owns the ledger), rules, domain exceptions with stable error codes, repository interfaces. No framework dependencies. |
-| `Banking.Application`    | Use cases (services), request/response DTOs with localized validation messages, `NotFoundException` |
-| `Banking.Infrastructure` | EF Core `DbContext`, Fluent API configurations, SQLite migrations, repositories, start-up migration and dev seeding |
-| `Banking.API`            | Controllers, global exception handler (problem details), localization (`Accept-Language`, `.resx`), Swagger, composition root |
+| `Banking.Domain`         | Entities with behaviour (`BankAccount` is the aggregate that owns the ledger, `Customer` owns the password policy and hash), rules, domain exceptions with stable error codes, repository and `IPasswordHasher` interfaces. No framework dependencies. |
+| `Banking.Application`    | Use cases (services, including login and the ownership checks), request/response DTOs with localized validation messages, `NotFoundException`, `ForbiddenException`, `InvalidCredentialsException`, `ICurrentCustomer` / `IAccessTokenIssuer` ports |
+| `Banking.Infrastructure` | EF Core `DbContext`, Fluent API configurations, SQLite migrations, repositories, PBKDF2 password hasher, start-up migration and dev seeding |
+| `Banking.API`            | Controllers, JWT bearer authentication (token issuer, `sub` claim → current customer), global exception handler (problem details), localization (`Accept-Language`, `.resx`), Swagger, composition root |
 | `Banking.Tests`          | Domain, service, repository and HTTP integration tests                                           |
 
 Key design decisions:
@@ -63,24 +67,85 @@ Key design decisions:
   `IHasErrorCode`: a stable code (`InsufficientFunds`, `DepositBelowMinimum`, `CustomerNotFound`…) plus the values the
   message needs. Only `GlobalExceptionHandler` turns a code into text, through `IStringLocalizer` and `.resx` files, so
   the inner layers never depend on localization.
+- **Authorization is a use-case rule, not a controller detail.** The API only establishes *who* is calling
+  (`ICurrentCustomer`, read from the token's `sub` claim); each service loads the entity and compares its owner with the
+  caller, so a missing account is still `404` and someone else's is `403`, whichever entry point is used. The API is
+  also secure by default: a fallback policy requires an authenticated customer on every endpoint unless it opts out with
+  `[AllowAnonymous]` (registration, login, health).
+- **Passwords never leave the domain in clear.** `Customer.Create` enforces the password policy (8–128 characters) and
+  stores the hash produced by `IPasswordHasher`; the infrastructure implements it with ASP.NET Core Identity's PBKDF2
+  hasher. Response DTOs never include the hash.
 
 ## Endpoints
 
-| Method | Route                                      | Body                              | Description                                   |
-| ------ | ------------------------------------------ | --------------------------------- | --------------------------------------------- |
-| `POST` | `/api/Customer`                            | `CreateCustomerDto`               | Register a customer (`201` + `Location`)      |
-| `GET`  | `/api/Customer/{customerId}`               |                                   | Get a customer                                |
-| `POST` | `/api/BankAccount`                         | `{ customerId, initialDeposit }`  | Open an account (`201` + `Location`)          |
-| `GET`  | `/api/BankAccount/{accountNumber}`         |                                   | Get an account                                |
-| `GET`  | `/api/BankAccount/{accountNumber}/balance` |                                   | Get the balance                               |
-| `POST` | `/api/Transaction/Deposit`                 | `{ accountNumber, amount }`       | Deposit                                       |
-| `POST` | `/api/Transaction/Withdrawal`              | `{ accountNumber, amount }`       | Withdraw                                      |
-| `POST` | `/api/Transaction/Apply-Interest`          | `{ accountNumber }`               | Credit 10% interest on the balance            |
-| `GET`  | `/api/Transaction/{accountNumber}/summary` |                                   | Ledger with totals and final balance          |
-| `GET`  | `/health`                                  |                                   | Liveness check                                |
+| Method | Route                                      | Auth     | Body                                   | Description                                   |
+| ------ | ------------------------------------------ | -------- | -------------------------------------- | --------------------------------------------- |
+| `POST` | `/api/Customer`                            | public   | `CreateCustomerDto` (incl. `password`) | Register a customer (`201` + `Location`)      |
+| `POST` | `/api/Auth/login`                          | public   | `{ documentNumber, password }`         | Get a JWT (`200`, `401` on bad credentials)   |
+| `GET`  | `/api/Customer/{customerId}`               | own      |                                        | Get a customer                                |
+| `POST` | `/api/BankAccount`                         | own      | `{ customerId, initialDeposit }`       | Open an account for yourself (`201` + `Location`) |
+| `GET`  | `/api/BankAccount/{accountNumber}`         | owner    |                                        | Get an account                                |
+| `GET`  | `/api/BankAccount/{accountNumber}/balance` | owner    |                                        | Get the balance                               |
+| `POST` | `/api/Transaction/Deposit`                 | owner    | `{ accountNumber, amount }`            | Deposit                                       |
+| `POST` | `/api/Transaction/Withdrawal`              | owner    | `{ accountNumber, amount }`            | Withdraw                                      |
+| `POST` | `/api/Transaction/Apply-Interest`          | owner    | `{ accountNumber }`                    | Credit 10% interest on the balance            |
+| `GET`  | `/api/Transaction/{accountNumber}/summary` | owner    |                                        | Ledger with totals and final balance          |
+| `GET`  | `/health`                                  | public   |                                        | Liveness check                                |
+
+*own* / *owner*: a bearer token is required, and the customer or account must belong to the authenticated customer
+(`401` without a valid token, `403` for someone else's data).
 
 Enums travel as strings (`"gender": "F"`, `"transactionType": "Deposit"`). Full schemas are in Swagger, and
 [`Banking.API/Banking.API.http`](Banking.API/Banking.API.http) contains ready-to-run requests.
+
+### Authentication
+
+1. **Register** (public) with `POST /api/Customer`; the payload includes a `password` of 8–128 characters.
+2. **Log in** with `POST /api/Auth/login` using the document number and password:
+
+   ```bash
+   curl -s -X POST http://localhost:5200/api/Auth/login \
+     -H "Content-Type: application/json" \
+     -d '{ "documentNumber": "001-120490-0001A", "password": "Banking123!" }'
+   ```
+
+   ```json
+   {
+     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+     "tokenType": "Bearer",
+     "expiresAt": "2026-10-18T07:12:45Z",
+     "customerId": 1
+   }
+   ```
+
+3. **Send the token** on every other request:
+
+   ```bash
+   curl -s http://localhost:5200/api/BankAccount/1000000001/balance \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   ```
+
+   In Swagger UI, press **Authorize** and paste the `accessToken` (without the `Bearer ` prefix).
+
+Tokens are HS256-signed JWTs that carry the customer id (`sub`), the display name (`name`) and expire after
+`Jwt:AccessTokenLifetimeMinutes` (60 by default). There are no roles: registration is open so anyone can create their
+own customer, and from then on every customer sees only their own records. This keeps the model simple and coherent
+for a self-service API; an `Admin` role would only be needed for back-office operations that do not exist yet.
+
+```bash
+# Luis trying to read Ana's balance
+curl -s http://localhost:5200/api/BankAccount/1000000001/balance -H "Authorization: Bearer <Luis' token>"
+```
+
+```json
+{
+  "title": "Access denied",
+  "status": 403,
+  "detail": "Account '1000000001' belongs to another customer.",
+  "instance": "/api/BankAccount/1000000001/balance",
+  "code": "AccountAccessDenied"
+}
+```
 
 ### Error responses
 
@@ -100,7 +165,9 @@ All errors use `application/problem+json`:
 | Status | When                                                                                   | `code`                                                                                   |
 | ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `400`  | Invalid payload (`ValidationProblemDetails` with an `errors` map)                      | `ValidationFailed`                                                                       |
-| `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `BirthDateInFuture`, … (see `DomainErrorCodes`) |
+| `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `BirthDateInFuture`, `PasswordTooShort`, … (see `DomainErrorCodes`) |
+| `401`  | No valid bearer token (missing, expired or tampered; `WWW-Authenticate: Bearer` is set), or wrong login credentials | `AuthenticationRequired`, `InvalidCredentials`                      |
+| `403`  | The account or customer belongs to another customer                                    | `AccountAccessDenied`, `CustomerAccessDenied`                                            |
 | `404`  | Customer or account does not exist                                                     | `CustomerNotFound`, `AccountNotFound`                                                    |
 | `409`  | Duplicate document number, or the account changed concurrently (retry the request)    | `DuplicateDocumentNumber`, `ConcurrencyConflict`, `AccountNumberTaken`                   |
 | `500`  | Unexpected error (details are logged, never returned)                                  | `UnexpectedError`                                                                        |
@@ -167,12 +234,16 @@ to `SupportedCultures`.
 ### Sample data (Development only)
 
 When `Database:SeedSampleData` is `true` (it is in `appsettings.Development.json`) and the database has no customers,
-two accounts are created so you can try the API immediately:
+two customers with one account each are created so you can try the API immediately. Both log in with the password
+**`Banking123!`**:
 
-| Account number | Customer        | Ledger                                              |
-| -------------- | --------------- | --------------------------------------------------- |
-| `1000000001`   | Ana Martínez    | open 500, deposit 250, withdraw 100, interest 65    |
-| `1000000002`   | Luis Hernández  | open 1000, withdraw 200                             |
+| Customer        | Document number (login) | Account number | Ledger                                              |
+| --------------- | ----------------------- | -------------- | --------------------------------------------------- |
+| Ana Martínez    | `001-120490-0001A`      | `1000000001`   | open 500, deposit 250, withdraw 100, interest 65    |
+| Luis Hernández  | `001-031185-0002B`      | `1000000002`   | open 1000, withdraw 200                             |
+
+Customers created before passwords existed (a database from an earlier version) have an empty hash and cannot log in;
+delete `Banking.Infrastructure/Data/banking.db` to let the seeder recreate the sample data, or register new customers.
 
 ---
 
@@ -210,12 +281,24 @@ two accounts are created so you can try the API immediately:
    http://localhost:5200/swagger
    ```
 
+4. Log in (`POST /api/Auth/login`) as `001-120490-0001A` / `Banking123!`, press **Authorize** and paste the
+   `accessToken`. Every other endpoint now works for Ana's account `1000000001`; Luis' account answers `403`.
+
+Outside `Development` the API needs its own JWT signing key (see below) and refuses to start without it:
+
+```bash
+Jwt__SigningKey="$(openssl rand -base64 48)" ASPNETCORE_ENVIRONMENT=Production dotnet run --project Banking.API
+```
+
 ### Configuration
 
 | Key                                  | Default                                              | Purpose                                      |
 | ------------------------------------ | ---------------------------------------------------- | -------------------------------------------- |
 | `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root |
 | `Database:SeedSampleData`            | `false` (`true` in Development)                      | Insert the sample accounts when the DB is empty |
+| `Jwt:SigningKey`                     | development-only value in `appsettings.Development.json`; **required elsewhere** (`Jwt__SigningKey` environment variable, user secrets…) | HS256 secret, at least 32 characters. Start-up fails if it is missing or too short, and the committed development key (marked `DEVELOPMENT-ONLY`) is rejected outside `Development` |
+| `Jwt:Issuer` / `Jwt:Audience`        | `BankingApp` / `BankingApp.API`                      | `iss` / `aud` claims; tokens with other values are rejected |
+| `Jwt:AccessTokenLifetimeMinutes`     | `60`                                                 | Token lifetime (1 minute to 24 hours)        |
 
 Pending migrations are applied automatically on start-up. If a previous run was killed while migrating (for example stopped from the IDE), the lock row EF Core leaves in `__EFMigrationsLock` is removed automatically once it is older than two minutes, so the API never hangs on start-up with the browser showing `ERR_CONNECTION_REFUSED`. To add a migration after changing the model:
 
@@ -232,10 +315,10 @@ dotnet ef migrations add <Name> --project Banking.Infrastructure --startup-proje
 
 | Layer          | What is covered                                                                                          |
 | -------------- | -------------------------------------------------------------------------------------------------------- |
-| Domain         | Opening deposit rules, amount validation, insufficient funds, interest rounding, version bumps           |
-| Application    | Services with mocked repositories: mapping, not-found, retry of account-number generation, summaries     |
-| Infrastructure | Real SQLite: atomic save of balance + ledger, unique document/account numbers, **concurrency conflict**, migrations in sync with the model |
-| API            | In-process HTTP tests: status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw**, the same error in English and Spanish, `.resx` keys in sync |
+| Domain         | Opening deposit rules, amount validation, insufficient funds, interest rounding, version bumps, password policy and hashing |
+| Application    | Services with mocked repositories: mapping, not-found, **ownership checks (403)**, login (wrong password, unknown document), retry of account-number generation, summaries |
+| Infrastructure | Real SQLite: atomic save of balance + ledger, unique document/account numbers, **concurrency conflict**, migrations in sync with the model, PBKDF2 hasher, seeded customers can log in |
+| API            | In-process HTTP tests: login, **401 without a token, 403 with another customer's token, 200 with the owner's**, status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw**, the same error in English and Spanish, `.resx` keys in sync, Swagger bearer scheme, start-up fails without a signing key |
 
 ```bash
 dotnet test

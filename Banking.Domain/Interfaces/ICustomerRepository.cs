@@ -9,6 +9,9 @@ public interface ICustomerRepository
     /// <summary>Gets a customer by id, or <see langword="null"/> when it does not exist.</summary>
     Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets a customer by identification document, or <see langword="null"/> when it does not exist.</summary>
+    Task<Customer?> GetCustomerByDocumentNumberAsync(string documentNumber, CancellationToken cancellationToken = default);
+
     /// <summary>Persists a new customer.</summary>
     /// <exception cref="DuplicateDocumentNumberException">Another customer has the same document number.</exception>
     Task<Customer> AddCustomerAsync(Customer customer, CancellationToken cancellationToken = default);

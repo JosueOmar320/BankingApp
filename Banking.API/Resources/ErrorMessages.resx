@@ -106,4 +106,37 @@
   <data name="RequestCancelled" xml:space="preserve">
     <value>The request was cancelled by the client.</value>
   </data>
+  <data name="Title.AuthenticationRequired" xml:space="preserve">
+    <value>Authentication required</value>
+  </data>
+  <data name="Title.InvalidCredentials" xml:space="preserve">
+    <value>Invalid credentials</value>
+  </data>
+  <data name="Title.Forbidden" xml:space="preserve">
+    <value>Access denied</value>
+  </data>
+  <data name="AuthenticationRequired" xml:space="preserve">
+    <value>A valid bearer token is required. Log in with POST /api/Auth/login and send the token as 'Authorization: Bearer &lt;token&gt;'.</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>The document number or the password is incorrect.</value>
+  </data>
+  <data name="AccessDenied" xml:space="preserve">
+    <value>Access to the requested resource is denied.</value>
+  </data>
+  <data name="AccountAccessDenied" xml:space="preserve">
+    <value>Account '{0}' belongs to another customer.</value>
+  </data>
+  <data name="CustomerAccessDenied" xml:space="preserve">
+    <value>Customer '{0}' is not the authenticated customer.</value>
+  </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>Password is required.</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>Password must be at least {0} characters long.</value>
+  </data>
+  <data name="PasswordTooLong" xml:space="preserve">
+    <value>Password cannot be longer than {0} characters.</value>
+  </data>
 </root>

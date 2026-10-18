@@ -1,5 +1,6 @@
 using Banking.Domain.Enums;
 using Banking.Domain.Exceptions;
+using Banking.Domain.Interfaces;
 
 namespace Banking.Domain.Entities;
 
@@ -8,6 +9,9 @@ public class Customer
 {
     public const int MaxNameLength = 150;
     public const int MaxDocumentNumberLength = 50;
+    public const int MinPasswordLength = 8;
+    public const int MaxPasswordLength = 128;
+    public const int MaxPasswordHashLength = 256;
 
     // EF Core materialisation.
     private Customer()
@@ -32,10 +36,19 @@ public class Customer
     /// <summary>UTC timestamp of registration.</summary>
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>
+    /// One-way hash of the login password, produced by <see cref="IPasswordHasher"/>. The plain
+    /// password is never stored. Empty for customers registered before passwords existed; they
+    /// cannot log in until one is set.
+    /// </summary>
+    public string PasswordHash { get; private set; } = string.Empty;
+
     /// <summary>Full display name.</summary>
     public string FullName => string.IsNullOrWhiteSpace(LastName) ? FirstName : $"{FirstName} {LastName}";
 
-    /// <summary>Registers a new customer, validating every business invariant.</summary>
+    /// <summary>Registers a new customer, validating every business invariant and hashing the password.</summary>
+    /// <param name="password">Plain login password; only its hash is kept.</param>
+    /// <param name="passwordHasher">Hashes the password.</param>
     /// <exception cref="DomainException">A value violates a business rule.</exception>
     public static Customer Create(
         string firstName,
@@ -44,11 +57,16 @@ public class Customer
         string documentNumber,
         Gender gender,
         decimal monthlyIncome,
+        string password,
+        IPasswordHasher passwordHasher,
         DateTime createdAtUtc)
     {
+        ArgumentNullException.ThrowIfNull(passwordHasher);
+
         firstName = RequireText(firstName, "First name", MaxNameLength, DomainErrorCodes.FirstNameRequired, DomainErrorCodes.FirstNameTooLong);
         lastName = string.IsNullOrWhiteSpace(lastName) ? null : LimitLength(lastName, "Last name", MaxNameLength, DomainErrorCodes.LastNameTooLong);
         documentNumber = RequireText(documentNumber, "Document number", MaxDocumentNumberLength, DomainErrorCodes.DocumentNumberRequired, DomainErrorCodes.DocumentNumberTooLong);
+        EnsureValidPassword(password);
 
         if (!Enum.IsDefined(gender))
         {
@@ -73,8 +91,41 @@ public class Customer
             DocumentNumber = documentNumber,
             Gender = gender,
             MonthlyIncome = monthlyIncome,
+            PasswordHash = passwordHasher.Hash(password),
             CreatedAt = createdAtUtc,
         };
+    }
+
+    /// <summary>Checks a login attempt. Always false for a customer without a password.</summary>
+    public bool VerifyPassword(string password, IPasswordHasher passwordHasher)
+    {
+        ArgumentNullException.ThrowIfNull(passwordHasher);
+
+        return !string.IsNullOrEmpty(PasswordHash)
+            && !string.IsNullOrEmpty(password)
+            && passwordHasher.Verify(PasswordHash, password);
+    }
+
+    /// <summary>
+    /// The password policy: a plain length window. Passwords are never trimmed, so a leading or
+    /// trailing space is part of the secret.
+    /// </summary>
+    private static void EnsureValidPassword(string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new DomainException(DomainErrorCodes.PasswordRequired, "Password is required.");
+        }
+
+        if (password.Length < MinPasswordLength)
+        {
+            throw new DomainException(DomainErrorCodes.PasswordTooShort, $"Password must be at least {MinPasswordLength} characters long.", MinPasswordLength);
+        }
+
+        if (password.Length > MaxPasswordLength)
+        {
+            throw new DomainException(DomainErrorCodes.PasswordTooLong, $"Password cannot be longer than {MaxPasswordLength} characters.", MaxPasswordLength);
+        }
     }
 
     private static string RequireText(string? value, string field, int maxLength, string requiredCode, string tooLongCode)

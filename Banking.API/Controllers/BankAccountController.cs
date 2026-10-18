@@ -1,10 +1,12 @@
 using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Banking.API.Controllers;
 
-/// <summary>Bank account opening and balance queries.</summary>
+/// <summary>Bank account opening and balance queries. Every operation is limited to the caller's own accounts.</summary>
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
@@ -18,8 +20,11 @@ public class BankAccountController : ControllerBase
         _bankAccountService = bankAccountService;
     }
 
-    /// <summary>Opens a bank account for an existing customer.</summary>
-    /// <remarks>The opening deposit must be at least 10.00 and is recorded as the first transaction.</remarks>
+    /// <summary>Opens a bank account for the authenticated customer.</summary>
+    /// <remarks>
+    /// <c>customerId</c> must be the caller's own id. The opening deposit must be at least 10.00 and is
+    /// recorded as the first transaction.
+    /// </remarks>
     /// <param name="bankAccountDto">Owner and opening deposit.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <response code="201">The account was opened.</response>

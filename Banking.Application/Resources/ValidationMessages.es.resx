@@ -55,4 +55,10 @@
   <data name="MonthlyIncomeRange" xml:space="preserve">
     <value>El ingreso mensual no puede ser negativo.</value>
   </data>
+  <data name="PasswordRequired" xml:space="preserve">
+    <value>La contraseña es obligatoria.</value>
+  </data>
+  <data name="PasswordLength" xml:space="preserve">
+    <value>La contraseña debe tener entre {2} y {1} caracteres.</value>
+  </data>
 </root>

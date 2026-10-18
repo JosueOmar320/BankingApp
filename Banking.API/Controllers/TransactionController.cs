@@ -1,10 +1,12 @@
 using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Banking.API.Controllers;
 
-/// <summary>Ledger operations: deposits, withdrawals, interest and account summaries.</summary>
+/// <summary>Ledger operations: deposits, withdrawals, interest and account summaries, on the caller's own accounts.</summary>
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]

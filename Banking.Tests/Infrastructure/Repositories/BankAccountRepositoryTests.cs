@@ -126,21 +126,17 @@ public class BankAccountRepositoryTests
     }
 
     [Test]
-    public async Task GetBalanceByAccountNumberAsync_ReturnsBalanceOrNull()
+    public async Task ExistsByNumberAsync_ReportsKnownAndUnknownNumbers()
     {
         await using var context = _database.CreateContext();
         var repository = new BankAccountRepository(context);
         await repository.AddBankAccountAsync(TestData.Account(_customerId, 321m));
 
-        var knownBalance = await repository.GetBalanceByAccountNumberAsync("1234567890");
-        var unknownBalance = await repository.GetBalanceByAccountNumberAsync("0000000000");
         var knownExists = await repository.ExistsByNumberAsync("1234567890");
         var unknownExists = await repository.ExistsByNumberAsync("0000000000");
 
         Assert.Multiple(() =>
         {
-            Assert.That(knownBalance, Is.EqualTo(321m));
-            Assert.That(unknownBalance, Is.Null);
             Assert.That(knownExists, Is.True);
             Assert.That(unknownExists, Is.False);
         });

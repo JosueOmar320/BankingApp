@@ -21,6 +21,15 @@ public static class ProblemTitles
     /// <summary>400: the payload failed validation.</summary>
     public const string ValidationFailed = "Title.ValidationFailed";
 
+    /// <summary>401: the request carries no valid bearer token.</summary>
+    public const string AuthenticationRequired = "Title.AuthenticationRequired";
+
+    /// <summary>401: the login credentials are wrong.</summary>
+    public const string InvalidCredentials = "Title.InvalidCredentials";
+
+    /// <summary>403: the resource belongs to another customer.</summary>
+    public const string Forbidden = "Title.Forbidden";
+
     /// <summary>499: the client went away.</summary>
     public const string RequestCancelled = "Title.RequestCancelled";
 

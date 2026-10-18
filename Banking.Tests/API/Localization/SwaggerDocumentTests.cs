@@ -1,10 +1,14 @@
 using System.Net;
 using System.Text.Json;
+using Banking.API.Auth;
 using Banking.API.Localization;
 
 namespace Banking.Tests.API.Localization;
 
-/// <summary>The OpenAPI document advertises the Accept-Language header on every operation.</summary>
+/// <summary>
+/// The OpenAPI document advertises the Accept-Language header on every operation and the bearer
+/// scheme on every protected one, so the API can be driven from Swagger UI.
+/// </summary>
 public class SwaggerDocumentTests
 {
     private BankingApiFactory _factory = null!;
@@ -51,6 +55,46 @@ public class SwaggerDocumentTests
                 var schema = header.GetProperty("schema");
                 Assert.That(schema.GetProperty("default").GetString(), Is.EqualTo(SupportedCultures.Default), route);
                 Assert.That(schema.GetProperty("enum").EnumerateArray().Select(value => value.GetString()), Is.EquivalentTo(SupportedCultures.AcceptLanguageExamples), route);
+            }
+        });
+    }
+
+    [Test]
+    public async Task SwaggerJson_DeclaresTheBearerScheme_AndRequiresItOnProtectedOperationsOnly()
+    {
+        using var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var scheme = document.RootElement.GetProperty("components").GetProperty("securitySchemes").GetProperty(BearerSecurityOperationFilter.SchemeName);
+        var operations = document.RootElement.GetProperty("paths")
+            .EnumerateObject()
+            .SelectMany(path => path.Value.EnumerateObject().Select(operation => (Route: path.Name + " " + operation.Name, Operation: operation.Value)))
+            .ToDictionary(pair => pair.Route, pair => pair.Operation);
+
+        var anonymous = new[] { "/api/Auth/login post", "/api/Customer post" };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scheme.GetProperty("type").GetString(), Is.EqualTo("http"));
+            Assert.That(scheme.GetProperty("scheme").GetString(), Is.EqualTo("bearer"));
+            Assert.That(scheme.GetProperty("bearerFormat").GetString(), Is.EqualTo("JWT"));
+
+            foreach (var (route, operation) in operations)
+            {
+                var requiresToken = operation.TryGetProperty("security", out var security)
+                    && security.EnumerateArray().Any(requirement => requirement.TryGetProperty(BearerSecurityOperationFilter.SchemeName, out _));
+                var responses = operation.GetProperty("responses");
+
+                if (anonymous.Contains(route))
+                {
+                    Assert.That(requiresToken, Is.False, $"{route} must stay anonymous");
+                }
+                else
+                {
+                    Assert.That(requiresToken, Is.True, $"{route} must require the bearer token");
+                    Assert.That(responses.TryGetProperty("401", out _), Is.True, $"{route} documents 401");
+                    Assert.That(responses.TryGetProperty("403", out _), Is.True, $"{route} documents 403");
+                }
             }
         });
     }

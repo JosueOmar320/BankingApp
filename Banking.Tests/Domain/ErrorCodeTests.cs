@@ -54,7 +54,7 @@ public class ErrorCodeTests
     [Test]
     public void Create_TooLongFirstName_ExposesTheMaximumLength()
     {
-        var ex = Assert.Throws<DomainException>(() => Customer.Create(new string('a', Customer.MaxNameLength + 1), null, new DateOnly(1990, 1, 1), "DOC-1", Gender.F, 0m, TestData.Now));
+        var ex = Assert.Throws<DomainException>(() => Customer.Create(new string('a', Customer.MaxNameLength + 1), null, new DateOnly(1990, 1, 1), "DOC-1", Gender.F, 0m, TestData.Password, TestData.Hasher, TestData.Now));
 
         Assert.Multiple(() =>
         {
@@ -66,7 +66,7 @@ public class ErrorCodeTests
     [Test]
     public void Create_FutureBirthDate_ExposesBirthDateInFutureCode()
     {
-        var ex = Assert.Throws<DomainException>(() => Customer.Create("Ana", null, new DateOnly(2999, 1, 1), "DOC-1", Gender.F, 0m, TestData.Now));
+        var ex = Assert.Throws<DomainException>(() => Customer.Create("Ana", null, new DateOnly(2999, 1, 1), "DOC-1", Gender.F, 0m, TestData.Password, TestData.Hasher, TestData.Now));
 
         Assert.That(ex!.Code, Is.EqualTo(DomainErrorCodes.BirthDateInFuture));
     }

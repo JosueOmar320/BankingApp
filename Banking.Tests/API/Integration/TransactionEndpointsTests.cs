@@ -90,6 +90,8 @@ public class TransactionEndpointsTests : ApiTestBase
     [Test]
     public async Task Operations_OnUnknownAccount_Return404()
     {
+        await CreateCustomerAsync();
+
         var deposit = await Client.PostAsJsonAsync("/api/Transaction/Deposit", new TransactionRequestDto { AccountNumber = "0000000000", Amount = 1m }, Json);
         var withdrawal = await Client.PostAsJsonAsync("/api/Transaction/Withdrawal", new TransactionRequestDto { AccountNumber = "0000000000", Amount = 1m }, Json);
         var interest = await Client.PostAsJsonAsync("/api/Transaction/Apply-Interest", new ApplyInterestRequestDto { AccountNumber = "0000000000" }, Json);

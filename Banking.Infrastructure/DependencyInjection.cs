@@ -1,6 +1,7 @@
 using Banking.Domain.Interfaces;
 using Banking.Infrastructure.Persistence;
 using Banking.Infrastructure.Repositories;
+using Banking.Infrastructure.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Banking.Infrastructure;
 
-/// <summary>Registers the SQLite <see cref="BankingDbContext"/> and the repositories.</summary>
+/// <summary>Registers the SQLite <see cref="BankingDbContext"/>, the repositories and the password hasher.</summary>
 public static class DependencyInjection
 {
     public const string ConnectionStringName = "DefaultConnection";
@@ -34,12 +35,16 @@ public static class DependencyInjection
         return services.AddRepositories();
     }
 
-    /// <summary>Registers only the repositories; the caller configures <see cref="BankingDbContext"/> itself (tests).</summary>
+    /// <summary>
+    /// Registers the repositories and the password hasher; the caller configures
+    /// <see cref="BankingDbContext"/> itself (tests).
+    /// </summary>
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
+        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
 
         return services;
     }

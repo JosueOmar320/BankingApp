@@ -20,6 +20,10 @@ internal sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         builder.Property(c => c.MonthlyIncome).IsRequired();
         builder.Property(c => c.CreatedAt).IsRequired().HasConversion<UtcDateTimeConverter>();
 
+        // Identity's PBKDF2 hashes are ~85 characters; the limit leaves room for stronger formats.
+        // Empty (not null) for rows that predate passwords, so the column could be added without a rewrite.
+        builder.Property(c => c.PasswordHash).IsRequired().HasMaxLength(Customer.MaxPasswordHashLength).HasDefaultValue(string.Empty);
+
         builder.Ignore(c => c.FullName);
 
         // Two customers can never share an identification document.

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,8 +11,10 @@ namespace Banking.Tests.API.Integration;
 public class CustomerEndpointsTests : ApiTestBase
 {
     [Test]
-    public async Task PostCustomer_Returns201WithLocationAndBody()
+    public async Task PostCustomer_WithoutAToken_Returns201WithLocationAndBody()
     {
+        UseToken(null);
+
         var response = await Client.PostAsJsonAsync("/api/Customer", new CreateCustomerDto
         {
             FirstName = "Luis",
@@ -19,10 +23,12 @@ public class CustomerEndpointsTests : ApiTestBase
             DocumentNumber = "POST-201",
             Gender = Gender.M,
             MonthlyIncome = 2500m,
+            Password = DefaultPassword,
         }, Json);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-        var body = await response.Content.ReadFromJsonAsync<CustomerResponseDto>(Json);
+        var raw = await response.Content.ReadAsStringAsync();
+        var body = JsonSerializer.Deserialize<CustomerResponseDto>(raw, Json);
         Assert.That(body, Is.Not.Null);
         Assert.Multiple(() =>
         {
@@ -30,7 +36,25 @@ public class CustomerEndpointsTests : ApiTestBase
             Assert.That(body.FirstName, Is.EqualTo("Luis"));
             Assert.That(body.Gender, Is.EqualTo(Gender.M));
             Assert.That(response.Headers.Location!.ToString(), Does.EndWith($"/api/Customer/{body.CustomerId}"));
+            Assert.That(raw, Does.Not.Contain("assword").IgnoreCase, "neither the password nor its hash is ever returned");
         });
+    }
+
+    [Test]
+    public async Task PostCustomer_ShortPassword_Returns400ValidationProblem()
+    {
+        var response = await Client.PostAsJsonAsync("/api/Customer", new CreateCustomerDto
+        {
+            FirstName = "Ana",
+            BirthDate = new DateOnly(1990, 1, 1),
+            DocumentNumber = $"SHORT-{Guid.NewGuid():N}",
+            Gender = Gender.F,
+            Password = "short",
+        }, Json);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(Json);
+        Assert.That(problem!.Errors["Password"], Has.One.EqualTo("The password must be between 8 and 128 characters long."));
     }
 
     [Test]
@@ -48,8 +72,27 @@ public class CustomerEndpointsTests : ApiTestBase
     }
 
     [Test]
+    public async Task GetCustomer_AnotherCustomer_Returns403Problem()
+    {
+        var other = await CreateCustomerAsync();
+        await CreateCustomerAsync();
+
+        var response = await Client.GetAsync($"/api/Customer/{other.CustomerId}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(problem!.Detail, Does.Contain(other.CustomerId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            Assert.That(problem.Extensions["code"]!.ToString(), Is.EqualTo(ApplicationErrorCodes.CustomerAccessDenied));
+        });
+    }
+
+    [Test]
     public async Task GetCustomer_UnknownId_Returns404Problem()
     {
+        await CreateCustomerAsync();
+
         var response = await Client.GetAsync("/api/Customer/999999");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
@@ -93,6 +136,7 @@ public class CustomerEndpointsTests : ApiTestBase
             BirthDate = new DateOnly(2999, 1, 1),
             DocumentNumber = "FUTURE-1",
             Gender = Gender.F,
+            Password = DefaultPassword,
         }, Json);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -115,6 +159,7 @@ public class CustomerEndpointsTests : ApiTestBase
             BirthDate = new DateOnly(1990, 1, 1),
             DocumentNumber = "DUP-1",
             Gender = Gender.O,
+            Password = DefaultPassword,
         }, Json);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));

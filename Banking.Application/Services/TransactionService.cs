@@ -14,17 +14,20 @@ internal sealed class TransactionService : ITransactionService
 {
     private readonly IBankAccountRepository _bankAccountRepository;
     private readonly ITransactionRepository _transactionRepository;
+    private readonly ICurrentCustomer _currentCustomer;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<TransactionService> _logger;
 
     public TransactionService(
         IBankAccountRepository bankAccountRepository,
         ITransactionRepository transactionRepository,
+        ICurrentCustomer currentCustomer,
         TimeProvider timeProvider,
         ILogger<TransactionService> logger)
     {
         _bankAccountRepository = bankAccountRepository;
         _transactionRepository = transactionRepository;
+        _currentCustomer = currentCustomer;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -99,9 +102,15 @@ internal sealed class TransactionService : ITransactionService
         return transaction.ToDto(account.AccountNumber);
     }
 
+    /// <summary>Loads an account that must exist (404) and belong to the caller (403).</summary>
     private async Task<BankAccount> LoadAccountAsync(string accountNumber, CancellationToken cancellationToken)
-        => await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
+    {
+        var account = await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
             ?? throw new NotFoundException("Account", accountNumber);
+        account.EnsureOwnedBy(_currentCustomer);
+
+        return account;
+    }
 
     private DateTime Now() => _timeProvider.GetUtcNow().UtcDateTime;
 }

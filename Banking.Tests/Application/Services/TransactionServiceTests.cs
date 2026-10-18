@@ -15,6 +15,7 @@ public class TransactionServiceTests
 {
     private Mock<IBankAccountRepository> _accounts = null!;
     private Mock<ITransactionRepository> _transactions = null!;
+    private FakeCurrentCustomer _caller = null!;
     private TransactionService _service = null!;
 
     [SetUp]
@@ -22,12 +23,30 @@ public class TransactionServiceTests
     {
         _accounts = new Mock<IBankAccountRepository>(MockBehavior.Strict);
         _transactions = new Mock<ITransactionRepository>(MockBehavior.Strict);
-        _service = new TransactionService(_accounts.Object, _transactions.Object, new FixedTimeProvider(), NullLogger<TransactionService>.Instance);
+        _caller = new FakeCurrentCustomer(1);
+        _service = new TransactionService(_accounts.Object, _transactions.Object, _caller, new FixedTimeProvider(), NullLogger<TransactionService>.Instance);
     }
 
-    private BankAccount ArrangeAccount(decimal initialDeposit = 100m)
+    [Test]
+    public void EveryOperation_ThrowsForbiddenForAnotherCustomersAccount_WithoutSaving()
     {
-        var account = TestData.Account(initialDeposit: initialDeposit);
+        var account = ArrangeAccount(100m, customerId: 2);
+        var request = new TransactionRequestDto { AccountNumber = account.AccountNumber, Amount = 10m };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.DepositAsync(request))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.WithdrawAsync(request))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.ApplyInterestAsync(new ApplyInterestRequestDto { AccountNumber = account.AccountNumber }))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.GetAccountTransactionSummaryAsync(account.AccountNumber))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(account.Balance, Is.EqualTo(100m));
+        });
+        _accounts.Verify(a => a.UpdateBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private BankAccount ArrangeAccount(decimal initialDeposit = 100m, int customerId = 1)
+    {
+        var account = TestData.Account(customerId, initialDeposit);
         _accounts.Setup(a => a.GetByAccountNumberAsync(account.AccountNumber, It.IsAny<CancellationToken>())).ReturnsAsync(account);
         _accounts.Setup(a => a.UpdateBankAccountAsync(account, It.IsAny<CancellationToken>())).ReturnsAsync(account);
         return account;

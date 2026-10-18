@@ -9,6 +9,16 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # The project targets .NET 8 with EF Core 9. EF Core 10 and the matching
+      # Microsoft.Extensions.* 10.x packages belong to the .NET 10 move, which is
+      # a deliberate upgrade, not a weekly bump.
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

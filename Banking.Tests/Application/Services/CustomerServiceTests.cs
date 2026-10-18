@@ -1,130 +1,106 @@
-﻿using Banking.Application.Dtos;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Application.Services;
 using Banking.Domain.Entities;
 using Banking.Domain.Enums;
+using Banking.Domain.Exceptions;
 using Banking.Domain.Interfaces;
+using Banking.Tests.Support;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Banking.Tests.Application.Services
+namespace Banking.Tests.Application.Services;
+
+public class CustomerServiceTests
 {
-    public class CustomerServiceTests
+    private Mock<ICustomerRepository> _repository = null!;
+    private CustomerService _service = null!;
+
+    [SetUp]
+    public void SetUp()
     {
-        private Mock<ICustomerRepository> _customerRepositoryMock;
-        private CustomerService _customerService;
+        _repository = new Mock<ICustomerRepository>(MockBehavior.Strict);
+        _service = new CustomerService(_repository.Object, new FixedTimeProvider(), NullLogger<CustomerService>.Instance);
+    }
 
-        [SetUp]
-        public void Setup()
+    [Test]
+    public async Task CreateCustomerAsync_BuildsEntityFromDtoAndReturnsSavedData()
+    {
+        var dto = new CreateCustomerDto
         {
-            _customerRepositoryMock = new Mock<ICustomerRepository>();
-            _customerService = new CustomerService(_customerRepositoryMock.Object);
-        }
+            FirstName = "John",
+            LastName = "Doe",
+            BirthDate = new DateOnly(1990, 1, 1),
+            DocumentNumber = "123456789",
+            Gender = Gender.M,
+            MonthlyIncome = 2000m,
+        };
 
-        [Test]
-        public async Task CreateCustomerAsync_ShouldReturnCustomerResponseDto_WhenCustomerIsCreated()
+        Customer? captured = null;
+        _repository
+            .Setup(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()))
+            .Callback<Customer, CancellationToken>((c, _) => captured = c)
+            .ReturnsAsync((Customer c, CancellationToken _) => c);
+
+        var result = await _service.CreateCustomerAsync(dto);
+
+        Assert.That(captured, Is.Not.Null);
+        Assert.Multiple(() =>
         {
-            // Arrange
-            var createDto = new CreateCustomerDto
-            {
-                DocumentNumber = "123456789",
-                FirstName = "John",
-                LastName = "Doe",
-                BirthDate = new DateOnly(1990, 1, 1),
-                MonthlyIncome = 2000,
-                Gender = "M"
-            };
+            Assert.That(captured!.FirstName, Is.EqualTo("John"));
+            Assert.That(captured.DocumentNumber, Is.EqualTo("123456789"));
+            Assert.That(captured.CreatedAt, Is.EqualTo(TestData.Now));
+            Assert.That(result.FirstName, Is.EqualTo("John"));
+            Assert.That(result.LastName, Is.EqualTo("Doe"));
+            Assert.That(result.Gender, Is.EqualTo(Gender.M));
+            Assert.That(result.MonthlyIncome, Is.EqualTo(2000m));
+            Assert.That(result.CreatedAt, Is.EqualTo(TestData.Now));
+        });
+        _repository.Verify(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
 
-            var savedEntity = new Customer
-            {
-                CustomerId = 1,
-                DocumentNumber = createDto.DocumentNumber,
-                FirstName = createDto.FirstName,
-                LastName = createDto.LastName,
-                BirthDate = createDto.BirthDate,
-                MonthlyIncome = createDto.MonthlyIncome,
-                Gender = Enum.Parse<Gender>(createDto.Gender, ignoreCase: true)
-            };
-
-            _customerRepositoryMock
-                .Setup(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(savedEntity);
-
-            // Act
-            var result = await _customerService.CreateCustomerAsync(createDto);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.That(result.CustomerId, Is.EqualTo(savedEntity.CustomerId));
-            Assert.That(result.DocumentNumber, Is.EqualTo(savedEntity.DocumentNumber));
-            Assert.That(result.FirstName, Is.EqualTo(savedEntity.FirstName));
-            Assert.That(result.LastName, Is.EqualTo(savedEntity.LastName));
-            Assert.That(result.MonthlyIncome, Is.EqualTo(savedEntity.MonthlyIncome));
-            Assert.That(result.Gender, Is.EqualTo(savedEntity.Gender));
-        }
-
-        [Test]
-        public void CreateCustomerAsync_ShouldThrow_WhenRepositoryReturnsNull()
+    [Test]
+    public void CreateCustomerAsync_DoesNotHitRepositoryWhenDomainRulesFail()
+    {
+        var dto = new CreateCustomerDto
         {
-            // Arrange
-            var createDto = new CreateCustomerDto
-            {
-                DocumentNumber = "987654321",
-                FirstName = "Jane",
-                LastName = "Smith",
-                BirthDate = new DateOnly(1985, 5, 15),
-                MonthlyIncome = 3000,
-                Gender = "F"
-            };
+            FirstName = "John",
+            BirthDate = new DateOnly(2999, 1, 1),
+            DocumentNumber = "123",
+            Gender = Gender.M,
+        };
 
-            _customerRepositoryMock
-                .Setup(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Customer)null!);
+        Assert.ThrowsAsync<DomainException>(() => _service.CreateCustomerAsync(dto));
+        _repository.Verify(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
-            // Act & Assert
-            Assert.ThrowsAsync<NullReferenceException>(async () =>
-                await _customerService.CreateCustomerAsync(createDto));
-        }
+    [Test]
+    public void CreateCustomerAsync_PropagatesDuplicateDocumentNumber()
+    {
+        var dto = new CreateCustomerDto { FirstName = "John", BirthDate = new DateOnly(1990, 1, 1), DocumentNumber = "123", Gender = Gender.M };
+        _repository
+            .Setup(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateDocumentNumberException());
 
-        [Test]
-        public async Task CreateCustomerAsync_ShouldCallRepositoryOnce()
-        {
-            // Arrange
-            var createDto = new CreateCustomerDto
-            {
-                DocumentNumber = "55555555",
-                FirstName = "Alice",
-                LastName = "Johnson",
-                BirthDate = new DateOnly(2000, 12, 12),
-                MonthlyIncome = 1500,
-                Gender = "F"
-            };
+        Assert.ThrowsAsync<DuplicateDocumentNumberException>(() => _service.CreateCustomerAsync(dto));
+    }
 
-            var entity = new Customer
-            {
-                CustomerId = 99,
-                DocumentNumber = createDto.DocumentNumber,
-                FirstName = createDto.FirstName,
-                LastName = createDto.LastName,
-                BirthDate = createDto.BirthDate,
-                MonthlyIncome = createDto.MonthlyIncome,
-                Gender = Enum.Parse<Gender>(createDto.Gender, ignoreCase: true)
-            };
+    [Test]
+    public async Task GetCustomerByIdAsync_ReturnsDto()
+    {
+        _repository.Setup(r => r.GetCustomerByIdAsync(5, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
 
-            _customerRepositoryMock
-                .Setup(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(entity);
+        var result = await _service.GetCustomerByIdAsync(5);
 
-            // Act
-            var result = await _customerService.CreateCustomerAsync(createDto);
+        Assert.That(result.FirstName, Is.EqualTo("Ana"));
+    }
 
-            // Assert
-            _customerRepositoryMock.Verify(r => r.AddCustomerAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()), Times.Once);
-            Assert.That(result.FirstName, Is.EqualTo("Alice"));
-            Assert.That(result.LastName, Is.EqualTo("Johnson"));
-        }
+    [Test]
+    public void GetCustomerByIdAsync_ThrowsNotFound()
+    {
+        _repository.Setup(r => r.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((Customer?)null);
+
+        var ex = Assert.ThrowsAsync<NotFoundException>(() => _service.GetCustomerByIdAsync(99));
+        Assert.That(ex!.Message, Does.Contain("99"));
     }
 }

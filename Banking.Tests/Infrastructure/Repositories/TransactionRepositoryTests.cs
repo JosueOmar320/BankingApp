@@ -1,69 +1,60 @@
-﻿using Banking.Domain.Entities;
-using Banking.Infrastructure.Persistence;
+using Banking.Domain.Enums;
 using Banking.Infrastructure.Repositories;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Banking.Tests.Support;
 
-namespace Banking.Tests.Infrastructure.Repositories
+namespace Banking.Tests.Infrastructure.Repositories;
+
+public class TransactionRepositoryTests
 {
-    public class TransactionRepositoryTests
+    private SqliteTestDatabase _database = null!;
+
+    [SetUp]
+    public void SetUp() => _database = new SqliteTestDatabase();
+
+    [TearDown]
+    public void TearDown() => _database.Dispose();
+
+    [Test]
+    public async Task GetAllByAccountIdAsync_ReturnsOnlyThatAccountOldestFirst()
     {
-        private BankingDbContext _context;
-        private TransactionRepository _repository;
-
-        [SetUp]
-        public void Setup()
+        int targetId;
+        await using (var setup = _database.CreateContext())
         {
-            var options = new DbContextOptionsBuilder<BankingDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) 
-                .Options;
+            var customer = await new CustomerRepository(setup).AddCustomerAsync(TestData.Customer());
+            var accounts = new BankAccountRepository(setup);
 
-            _context = new BankingDbContext(options);
-            _repository = new TransactionRepository(_context);
+            var target = TestData.Account(customer.CustomerId, 100m, "1000000001");
+            target.Deposit(10m, TestData.Now.AddDays(2));
+            target.Withdraw(5m, TestData.Now.AddDays(1));
+            await accounts.AddBankAccountAsync(target);
+            targetId = target.BankAccountId;
+
+            var other = TestData.Account(customer.CustomerId, 50m, "1000000002");
+            other.Deposit(1m, TestData.Now.AddDays(3));
+            await accounts.AddBankAccountAsync(other);
         }
 
-        [TearDown]
-        public void Cleanup()
+        await using var context = _database.CreateContext();
+        var transactions = await new TransactionRepository(context).GetAllByAccountIdAsync(targetId);
+
+        Assert.That(transactions, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
         {
-            _context.Dispose();
-        }
+            Assert.That(transactions.Select(t => t.TransactionDate), Is.Ordered);
+            Assert.That(transactions[0].TransactionType, Is.EqualTo(TransactionType.Deposit));
+            Assert.That(transactions[1].TransactionType, Is.EqualTo(TransactionType.Withdrawal));
+            Assert.That(transactions[2].TransactionType, Is.EqualTo(TransactionType.Deposit));
+            Assert.That(transactions.All(t => t.BankAccountId == targetId), Is.True);
+        });
+    }
 
-        [Test]
-        public async Task AddTransactionAsync_ShouldPersistTransaction()
-        {
-            var transaction = new Transaction
-            {
-                BankAccountId = 1,
-                Amount = 100,
-                TransactionDate = DateTime.UtcNow,
-                TransactionType = Domain.Enums.TransactionType.Deposit,
-                BalanceAfter = 200
-            };
+    [Test]
+    public async Task GetAllByAccountIdAsync_ReturnsEmptyForUnknownAccount()
+    {
+        await using var context = _database.CreateContext();
 
-            var result = await _repository.AddTransactionAsync(transaction);
+        var transactions = await new TransactionRepository(context).GetAllByAccountIdAsync(404);
 
-            Assert.NotNull(result);
-            Assert.That(result.Amount, Is.EqualTo(100));
-            Assert.That(await _context.Transactions.CountAsync(), Is.EqualTo(1 ));
-        }
-
-        [Test]
-        public async Task GetAllByAccountIdAsync_ShouldReturnTransactionsOrdered()
-        {
-            _context.Transactions.AddRange(
-                new Transaction { BankAccountId = 1, Amount = 100, TransactionDate = DateTime.UtcNow.AddDays(-1), TransactionType = Domain.Enums.TransactionType.Deposit },
-                new Transaction { BankAccountId = 1, Amount = 50, TransactionDate = DateTime.UtcNow, TransactionType = Domain.Enums.TransactionType.Withdrawal }
-            );
-            await _context.SaveChangesAsync();
-
-            var transactions = await _repository.GetAllByAccountIdAsync(1);
-
-            Assert.That(transactions.Count(), Is.EqualTo(2));
-            Assert.Less(transactions.First().TransactionDate, transactions.Last().TransactionDate);
-        }
+        Assert.That(transactions, Is.Empty);
     }
 }

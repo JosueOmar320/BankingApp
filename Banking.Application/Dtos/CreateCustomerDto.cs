@@ -1,34 +1,36 @@
-﻿using Banking.Domain.Entities;
-using Banking.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+using Banking.Domain.Entities;
+using Banking.Domain.Enums;
 
-namespace Banking.Application.Dtos
+namespace Banking.Application.Dtos;
+
+/// <summary>Data required to register a customer.</summary>
+public sealed class CreateCustomerDto
 {
-    public class CreateCustomerDto
-    {
-        public required string FirstName { get; set; }
-        public string? LastName { get; set; }
-        public DateOnly BirthDate { get; set; }
-        public required string DocumentNumber { get; set; }
+    /// <summary>Given name.</summary>
+    [Required]
+    [StringLength(Customer.MaxNameLength, MinimumLength = 1)]
+    public required string FirstName { get; init; }
 
-        [RegularExpression("M|F|O", ErrorMessage = "Gender must be M, F, or O.")]
-        public required string Gender { get; set; }
+    /// <summary>Family name (optional).</summary>
+    [StringLength(Customer.MaxNameLength)]
+    public string? LastName { get; init; }
 
-        public decimal MonthlyIncome { get; set; }
+    /// <summary>Date of birth (yyyy-MM-dd). Cannot be in the future.</summary>
+    [Required]
+    public DateOnly BirthDate { get; init; }
 
-        public Customer ToEntity()
-        {
-            return new Customer
-            {
-                FirstName = FirstName,
-                LastName = LastName,
-                BirthDate = BirthDate,
-                DocumentNumber = DocumentNumber,
-                MonthlyIncome = MonthlyIncome,
-                CreatedAt = DateTime.UtcNow,
-                Gender = Enum.Parse<Gender>(Gender, ignoreCase: true)
-            };
-        }
-    }
+    /// <summary>Identification document number. Must be unique.</summary>
+    [Required]
+    [StringLength(Customer.MaxDocumentNumberLength, MinimumLength = 1)]
+    public required string DocumentNumber { get; init; }
+
+    /// <summary>Gender: <c>M</c>, <c>F</c> or <c>O</c>.</summary>
+    [Required]
+    [EnumDataType(typeof(Gender))]
+    public Gender Gender { get; init; }
+
+    /// <summary>Declared monthly income. Cannot be negative.</summary>
+    [Range(0, double.MaxValue)]
+    public decimal MonthlyIncome { get; init; }
 }

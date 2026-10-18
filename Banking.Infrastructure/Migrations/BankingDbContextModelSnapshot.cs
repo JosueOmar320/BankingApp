@@ -15,7 +15,7 @@ namespace Banking.Infrastructure.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.8");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.21");
 
             modelBuilder.Entity("Banking.Domain.Entities.BankAccount", b =>
                 {
@@ -25,6 +25,7 @@ namespace Banking.Infrastructure.Migrations
 
                     b.Property<string>("AccountNumber")
                         .IsRequired()
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Balance")
@@ -39,11 +40,18 @@ namespace Banking.Infrastructure.Migrations
                     b.Property<decimal>("InterestRate")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("BankAccountId");
+
+                    b.HasIndex("AccountNumber")
+                        .IsUnique();
 
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("BankAccounts");
+                    b.ToTable("BankAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Banking.Domain.Entities.Customer", b =>
@@ -60,6 +68,7 @@ namespace Banking.Infrastructure.Migrations
 
                     b.Property<string>("DocumentNumber")
                         .IsRequired()
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FirstName")
@@ -69,6 +78,7 @@ namespace Banking.Infrastructure.Migrations
 
                     b.Property<string>("Gender")
                         .IsRequired()
+                        .HasMaxLength(1)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LastName")
@@ -80,7 +90,10 @@ namespace Banking.Infrastructure.Migrations
 
                     b.HasKey("CustomerId");
 
-                    b.ToTable("Customers");
+                    b.HasIndex("DocumentNumber")
+                        .IsUnique();
+
+                    b.ToTable("Customers", (string)null);
                 });
 
             modelBuilder.Entity("Banking.Domain.Entities.Transaction", b =>
@@ -103,35 +116,37 @@ namespace Banking.Infrastructure.Migrations
 
                     b.Property<string>("TransactionType")
                         .IsRequired()
+                        .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
                     b.HasKey("TransactionId");
 
-                    b.HasIndex("BankAccountId");
+                    b.HasIndex("BankAccountId", "TransactionDate");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("Banking.Domain.Entities.BankAccount", b =>
                 {
-                    b.HasOne("Banking.Domain.Entities.Customer", "Customer")
+                    b.HasOne("Banking.Domain.Entities.Customer", null)
                         .WithMany()
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("Banking.Domain.Entities.Transaction", b =>
                 {
-                    b.HasOne("Banking.Domain.Entities.BankAccount", "BankAccount")
-                        .WithMany()
+                    b.HasOne("Banking.Domain.Entities.BankAccount", null)
+                        .WithMany("Transactions")
                         .HasForeignKey("BankAccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
 
-                    b.Navigation("BankAccount");
+            modelBuilder.Entity("Banking.Domain.Entities.BankAccount", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

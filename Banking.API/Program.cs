@@ -1,36 +1,51 @@
+using System.Reflection;
+using System.Text.Json.Serialization;
+using Banking.API.Middleware;
 using Banking.Application;
 using Banking.Infrastructure;
 using Banking.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// MVC + JSON: enums travel as their names ("Deposit", "M"), never as integers.
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Every error (validation, business rule, not found, unexpected) is an RFC 7807 problem response.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddDbContext<BankingDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-//Dependency Injection for Infrastructure
-builder.Services.AddInfrastructureServices();
-
-//Dependy Injection for Application
-builder.Services.AddApplicationServices();
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        Title = "Banking API",
+        Version = "v1",
+        Description = "Customers, bank accounts and ledger operations (deposits, withdrawals, interest).",
     });
+
+    foreach (var xml in new[] { Assembly.GetExecutingAssembly().GetName().Name, typeof(Banking.Application.DependencyInjection).Assembly.GetName().Name })
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, $"{xml}.xml");
+        if (File.Exists(path))
+        {
+            options.IncludeXmlComments(path, includeControllerXmlComments: true);
+        }
+    }
+});
+
+builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddApplicationServices();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -38,9 +53,15 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
 app.MapControllers();
+app.MapHealthChecks("/health");
 
-app.Run();
+// Create/upgrade the SQLite schema on start; sample data only when "Database:SeedSampleData" is true.
+await app.Services.InitializeDatabaseAsync(seedSampleData: app.Configuration.GetValue<bool>("Database:SeedSampleData"));
+
+await app.RunAsync();
+
+/// <summary>Entry point marker so integration tests can host the API with <c>WebApplicationFactory</c>.</summary>
+public partial class Program
+{
+}

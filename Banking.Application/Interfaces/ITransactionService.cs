@@ -1,53 +1,32 @@
-﻿using Banking.Application.Dtos;
-using Banking.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
+using Banking.Domain.Exceptions;
 
-namespace Banking.Application.Interfaces
+namespace Banking.Application.Interfaces;
+
+/// <summary>Ledger use cases: deposits, withdrawals, interest and summaries.</summary>
+public interface ITransactionService
 {
-    /// <summary>
-    /// Service interface for managing transactions such as deposits, withdrawals, and interest application.
-    /// </summary>
-    public interface ITransactionService
-    {
-        /// <summary>
-        /// Deposits a specified amount into a bank account.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="amount">The amount to deposit. Must be greater than zero.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
-        Task<TransactionResponseDto?> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
+    /// <summary>Deposits money into an account.</summary>
+    /// <exception cref="NotFoundException">The account does not exist.</exception>
+    /// <exception cref="DomainException">The amount violates a business rule.</exception>
+    /// <exception cref="ConcurrencyConflictException">The account changed concurrently; retry.</exception>
+    Task<TransactionResponseDto> DepositAsync(TransactionRequestDto request, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Withdraws a specified amount from a bank account.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="amount">The amount to withdraw. Must be greater than zero.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if account balance is insufficient.</exception>
-        Task<TransactionResponseDto?> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default);
+    /// <summary>Withdraws money from an account.</summary>
+    /// <exception cref="NotFoundException">The account does not exist.</exception>
+    /// <exception cref="DomainException">The amount violates a business rule.</exception>
+    /// <exception cref="InsufficientFundsException">The amount exceeds the balance.</exception>
+    /// <exception cref="ConcurrencyConflictException">The account changed concurrently; retry.</exception>
+    Task<TransactionResponseDto> WithdrawAsync(TransactionRequestDto request, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Applies interest to a bank account based on its current balance and fixed interest rate.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        Task<TransactionResponseDto?> ApplyInterestAsync(string accountNumber, CancellationToken cancellationToken = default);
-        
-        /// <summary>
-        /// Retrieves a summary of all transactions for a given account, including deposits, withdrawals, interests, starting and final balances.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>An account transaction summary, or null if the account does not exist.</returns>
-        Task<AccountTransactionSummaryDto?> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default);
-    }
+    /// <summary>Credits the account's interest rate on its current balance.</summary>
+    /// <exception cref="NotFoundException">The account does not exist.</exception>
+    /// <exception cref="DomainException">The resulting interest is zero.</exception>
+    /// <exception cref="ConcurrencyConflictException">The account changed concurrently; retry.</exception>
+    Task<TransactionResponseDto> ApplyInterestAsync(ApplyInterestRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the full ledger of an account with totals.</summary>
+    /// <exception cref="NotFoundException">The account does not exist.</exception>
+    Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default);
 }

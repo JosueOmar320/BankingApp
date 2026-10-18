@@ -1,60 +1,51 @@
-﻿using Banking.Application.Dtos;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Application.Interfaces;
+using Banking.Application.Mapping;
 using Banking.Domain.Entities;
 using Banking.Domain.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-namespace Banking.Application.Services
+namespace Banking.Application.Services;
+
+/// <inheritdoc cref="ICustomerService"/>
+internal sealed class CustomerService : ICustomerService
 {
-    /// <summary>
-    /// Service responsible for managing customer operations.
-    /// </summary>
-    public class CustomerService : ICustomerService
+    private readonly ICustomerRepository _customerRepository;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILogger<CustomerService> _logger;
+
+    public CustomerService(ICustomerRepository customerRepository, TimeProvider timeProvider, ILogger<CustomerService> logger)
     {
-        private readonly ICustomerRepository _customerRepository;
+        _customerRepository = customerRepository;
+        _timeProvider = timeProvider;
+        _logger = logger;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CustomerService"/> class.
-        /// </summary>
-        /// <param name="customerRepository">Repository for managing customers.</param>
-        public CustomerService(ICustomerRepository customerRepository)
-        {
-            _customerRepository = customerRepository;
-        }
+    public async Task<CustomerResponseDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(customer);
 
-        /// <summary>
-        /// Creates a new customer in the system.
-        /// </summary>
-        /// <param name="customer">DTO containing the customer information.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The newly created customer details.</returns>
-        public async Task<CustomerResponseDto> CreateCustomerAsync(CreateCustomerDto customer, CancellationToken cancellationToken = default)
-        {
-            var result = await _customerRepository.AddCustomerAsync(customer.ToEntity(), cancellationToken);
+        var entity = Customer.Create(
+            customer.FirstName,
+            customer.LastName,
+            customer.BirthDate,
+            customer.DocumentNumber,
+            customer.Gender,
+            customer.MonthlyIncome,
+            _timeProvider.GetUtcNow().UtcDateTime);
 
-            return new CustomerResponseDto {
-                DocumentNumber = result.DocumentNumber, 
-                FirstName = result.FirstName,
-                LastName = result.LastName, 
-                BirthDate = result.BirthDate, 
-                MonthlyIncome = result.MonthlyIncome ,
-                CustomerId = result.CustomerId,
-                Gender = result.Gender,
-            };
-        }
+        var saved = await _customerRepository.AddCustomerAsync(entity, cancellationToken);
 
-        /// <summary>
-        /// Gets a customer by their unique ID.
-        /// </summary>
-        /// <param name="customerId">The ID of the customer.</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>The <see cref="Customer"/> entity or null if not found.</returns>
-        public Task<Customer?> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
-            => _customerRepository.GetCustomerByIdAsync(customerId, cancellationToken);
+        Log.CustomerRegistered(_logger, saved.CustomerId);
+        return saved.ToDto();
+    }
 
+    public async Task<CustomerResponseDto> GetCustomerByIdAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        var customer = await _customerRepository.GetCustomerByIdAsync(customerId, cancellationToken)
+            ?? throw new NotFoundException("Customer", customerId);
+
+        return customer.ToDto();
     }
 }

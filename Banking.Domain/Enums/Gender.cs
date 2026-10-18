@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+namespace Banking.Domain.Enums;
 
-namespace Banking.Domain.Enums
+/// <summary>Customer gender as captured on the identification document.</summary>
+public enum Gender
 {
-    public enum Gender
-    {
-        M, //Masculine
-        F, //Feminine
-        O //Other
-    }
+    /// <summary>Male.</summary>
+    M,
+
+    /// <summary>Female.</summary>
+    F,
+
+    /// <summary>Other / not specified.</summary>
+    O,
 }

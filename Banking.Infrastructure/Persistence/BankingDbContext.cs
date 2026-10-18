@@ -1,38 +1,25 @@
-﻿using Banking.Domain.Entities;
+using Banking.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Banking.Infrastructure.Persistence
+namespace Banking.Infrastructure.Persistence;
+
+/// <summary>EF Core context for the banking database (SQLite).</summary>
+public class BankingDbContext : DbContext
 {
-    public class BankingDbContext : DbContext
+    public BankingDbContext(DbContextOptions<BankingDbContext> options)
+        : base(options)
     {
-        public BankingDbContext(DbContextOptions<BankingDbContext> options)
-           : base(options) 
-        {
-        }
+    }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
+    public DbSet<Customer> Customers => Set<Customer>();
 
-            modelBuilder.Entity<Customer>()
-                .Property(c => c.Gender)
-                .HasConversion<string>()
-                .IsRequired();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
 
-            modelBuilder.Entity<Transaction>()
-                .Property(c => c.TransactionType)
-                .HasConversion<string>()
-                .IsRequired();
-        }
+    public DbSet<Transaction> Transactions => Set<Transaction>();
 
-        public DbSet<Customer> Customers { get; set; }
-        public DbSet<BankAccount> BankAccounts { get; set; }
-        public DbSet<Transaction> Transactions { get; set; }
-
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BankingDbContext).Assembly);
     }
 }

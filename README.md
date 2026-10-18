@@ -1,14 +1,14 @@
-# BankingApp: .NET 8 Banking API
+# BankingApp: .NET 10 Banking API
 
-![.NET 8](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)
+![.NET 10](https://img.shields.io/badge/.NET-10_LTS-512BD4?logo=dotnet&logoColor=white)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-Web_API-512BD4?logo=dotnet&logoColor=white)
-![EF Core](https://img.shields.io/badge/EF_Core_9-SQLite-003B57?logo=sqlite&logoColor=white)
+![EF Core](https://img.shields.io/badge/EF_Core_10-SQLite-003B57?logo=sqlite&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-NUnit_%2B_Moq-25A162)
 ![Swagger](https://img.shields.io/badge/docs-Swagger-85EA2D?logo=swagger&logoColor=black)
 [![CI](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml/badge.svg)](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-A **Banking API** built with **.NET 8** and **ASP.NET Core Web API**. It manages customers, bank accounts and a
+A **Banking API** built with **.NET 10 (LTS)** and **ASP.NET Core Web API**. It manages customers, bank accounts and a
 transaction ledger (deposits, withdrawals and interest), following Clean Architecture with a rich domain model.
 Customers authenticate with a JWT and can only operate their own accounts.
 
@@ -330,7 +330,7 @@ delete `Banking.Infrastructure/Data/banking.db` to let the seeder recreate the s
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) or newer (`global.json` rolls forward to the latest major)
+- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (`global.json` rolls forward to the latest 10.0.x SDK installed)
 - Visual Studio, Visual Studio Code, Rider, or any .NET compatible editor
 - Or just [Docker](https://docs.docker.com/get-docker/), to run the API without installing the SDK (see below)
 

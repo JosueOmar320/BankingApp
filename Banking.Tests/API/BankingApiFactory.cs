@@ -1,4 +1,5 @@
 using Banking.API.Auth;
+using Banking.API.RateLimiting;
 using Banking.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,14 +20,17 @@ public sealed class BankingApiFactory : WebApplicationFactory<Program>
     private readonly string _connectionString = $"Data Source=file:banking-tests-{Guid.NewGuid():N}?mode=memory&cache=shared";
     private readonly string _environment;
     private readonly string? _signingKey;
+    private readonly IReadOnlyDictionary<string, string?> _settings;
     private readonly SqliteConnection _keepAlive;
 
     /// <param name="environment">Host environment; "Development" additionally enables Swagger.</param>
     /// <param name="signingKey">Value of <c>Jwt:SigningKey</c>; <see langword="null"/> leaves it unset.</param>
-    public BankingApiFactory(string environment = "Testing", string? signingKey = TestSigningKey)
+    /// <param name="settings">Extra configuration values applied last, for fixtures that need specific limits.</param>
+    public BankingApiFactory(string environment = "Testing", string? signingKey = TestSigningKey, IReadOnlyDictionary<string, string?>? settings = null)
     {
         _environment = environment;
         _signingKey = signingKey;
+        _settings = settings ?? new Dictionary<string, string?>();
         _keepAlive = new SqliteConnection(_connectionString);
         _keepAlive.Open();
     }
@@ -39,6 +43,16 @@ public sealed class BankingApiFactory : WebApplicationFactory<Program>
         if (_signingKey is not null)
         {
             builder.UseSetting($"{JwtOptions.SectionName}:{nameof(JwtOptions.SigningKey)}", _signingKey);
+        }
+
+        // Every test of a fixture shares one host and one (unknown) client address, so the production
+        // limits would trip across unrelated tests; rate-limiting tests pass their own small limits.
+        builder.UseSetting($"{RateLimitingOptions.SectionName}:{nameof(RateLimitingOptions.Authentication)}:{nameof(RateLimitPolicyOptions.PermitLimit)}", "100000");
+        builder.UseSetting($"{RateLimitingOptions.SectionName}:{nameof(RateLimitingOptions.MoneyOperations)}:{nameof(RateLimitPolicyOptions.PermitLimit)}", "100000");
+
+        foreach (var (key, value) in _settings)
+        {
+            builder.UseSetting(key, value);
         }
     }
 

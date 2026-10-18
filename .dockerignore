@@ -1,0 +1,23 @@
+# Build output and local state
+**/bin/
+**/obj/
+**/TestResults/
+*.db
+*.db-wal
+*.db-shm
+
+# Tooling and editors
+.git/
+.github/
+.idea/
+.vs/
+.vscode/
+.claude/
+*.user
+
+# Docker and docs
+Dockerfile
+docker-compose*.yml
+.dockerignore
+README.md
+LICENSE

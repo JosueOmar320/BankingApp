@@ -6,12 +6,13 @@
 ![Tests](https://img.shields.io/badge/tests-NUnit_%2B_Moq-25A162)
 ![Swagger](https://img.shields.io/badge/docs-Swagger-85EA2D?logo=swagger&logoColor=black)
 [![CI](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml/badge.svg)](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 A **Banking API** built with **.NET 8** and **ASP.NET Core Web API**. It manages customers, bank accounts and a
 transaction ledger (deposits, withdrawals and interest), following Clean Architecture with a rich domain model.
 
-The SQLite database is created and migrated automatically on start-up, and in `Development` it is seeded with two
-sample accounts, so you only need to run the API.
+No database file is checked in: the SQLite database is created and migrated automatically on start-up, and in
+`Development` it is seeded with two sample accounts, so you only need to run the API (locally or with Docker).
 
 ---
 
@@ -34,6 +35,7 @@ sample accounts, so you only need to run the API.
 - Swagger UI with XML documentation, `/health` endpoint, structured logging with source-generated log messages
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
 - GitHub Actions CI: format check, build with warnings as errors, tests and NuGet vulnerability audit
+- Multi-stage `Dockerfile` (non-root runtime image) and `docker-compose.yml` with a persistent volume for the database
 
 ---
 
@@ -63,6 +65,24 @@ Key design decisions:
   `IHasErrorCode`: a stable code (`InsufficientFunds`, `DepositBelowMinimum`, `CustomerNotFound`…) plus the values the
   message needs. Only `GlobalExceptionHandler` turns a code into text, through `IStringLocalizer` and `.resx` files, so
   the inner layers never depend on localization.
+
+### Why these choices
+
+- **SQLite instead of a database server.** The API is self-contained: clone, run, and the schema is created. There is
+  nothing to install, the integration tests run against the real provider (in-memory SQLite), and because the mapping
+  lives in EF Core configurations, moving to PostgreSQL or SQL Server means swapping the provider and the migrations,
+  not the domain.
+- **Optimistic concurrency instead of locks.** Money operations are short and conflicts are rare, so each account
+  carries a `Version` token checked on every `UPDATE`. Two withdrawals that race for the same balance cannot both
+  succeed: the second one gets `409 Conflict` and retries with fresh data. No pessimistic locks, no long transactions,
+  and the rule is enforced by the database, not by careful code in every caller.
+- **ProblemDetails for every error.** Clients get one shape for validation errors, business rules, missing resources
+  and unexpected failures (RFC 7807), with a stable `code` to branch on and a localized `detail` to display. The
+  mapping lives in a single `IExceptionHandler`, so controllers do not catch exceptions and the contract cannot drift
+  between endpoints.
+- **Clean Architecture, pragmatically.** Four projects with dependencies pointing inward keep the domain free of
+  frameworks and testable in isolation, without introducing CQRS, MediatR or generic repositories the project does
+  not need.
 
 ## Endpoints
 
@@ -180,6 +200,7 @@ two accounts are created so you can try the API immediately:
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) or newer (`global.json` rolls forward to the latest major)
 - Visual Studio, Visual Studio Code, Rider, or any .NET compatible editor
+- Or just [Docker](https://docs.docker.com/get-docker/), to run the API without installing the SDK (see below)
 
 ## Running the API
 
@@ -210,11 +231,41 @@ two accounts are created so you can try the API immediately:
    http://localhost:5200/swagger
    ```
 
+### Running with Docker
+
+The [`Dockerfile`](Dockerfile) is multi-stage: the SDK image restores, builds and publishes the API, and the final
+image is the ASP.NET Core 8 runtime running as the non-root `app` user on port `8080`. The database is kept in a
+named volume, so data survives container restarts and rebuilds.
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/swagger` (Swagger is enabled because the compose file runs the API in
+`Development`) or check `http://localhost:8080/health`. The compose file passes two settings as environment
+variables, which you can override:
+
+| Variable                 | Default       | Purpose                                                          |
+| ------------------------ | ------------- | ---------------------------------------------------------------- |
+| `ASPNETCORE_ENVIRONMENT` | `Development` | `Production` disables Swagger                                    |
+| `SEED_SAMPLE_DATA`       | `true`        | Mapped to `Database__SeedSampleData`; insert the two sample accounts |
+
+```bash
+ASPNETCORE_ENVIRONMENT=Production SEED_SAMPLE_DATA=false docker compose up --build -d
+```
+
+`ConnectionStrings__DefaultConnection` is set to `Data Source=/data/banking.db`, the mounted volume. To start from an
+empty database again:
+
+```bash
+docker compose down -v
+```
+
 ### Configuration
 
 | Key                                  | Default                                              | Purpose                                      |
 | ------------------------------------ | ---------------------------------------------------- | -------------------------------------------- |
-| `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root |
+| `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root. The file is git-ignored and created on first run |
 | `Database:SeedSampleData`            | `false` (`true` in Development)                      | Insert the sample accounts when the DB is empty |
 
 Pending migrations are applied automatically on start-up. If a previous run was killed while migrating (for example stopped from the IDE), the lock row EF Core leaves in `__EFMigrationsLock` is removed automatically once it is older than two minutes, so the API never hangs on start-up with the browser showing `ERR_CONNECTION_REFUSED`. To add a migration after changing the model:
@@ -249,3 +300,9 @@ dotnet test --logger "console;verbosity=detailed"
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request: `dotnet format` check,
 build with `TreatWarningsAsErrors`, the full test suite and a NuGet vulnerability audit.
+[Dependabot](.github/dependabot.yml) opens a weekly pull request for NuGet packages and GitHub Actions, grouping minor
+and patch updates together.
+
+## License
+
+[MIT](LICENSE) © 2026 Josue Omar Flores

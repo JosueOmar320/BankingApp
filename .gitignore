@@ -364,7 +364,8 @@ FodyWeavers.xsd
 # JetBrains Rider / IntelliJ
 .idea/
 
-# SQLite side files
+# SQLite database and side files: the API creates and migrates the database on start-up
+*.db
 *.db-shm
 *.db-wal
 *.db-journal

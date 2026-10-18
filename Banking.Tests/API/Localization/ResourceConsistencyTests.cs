@@ -49,12 +49,15 @@ public class ResourceConsistencyTests
         yield return NotFoundException.DefaultCode;
         yield return ForbiddenException.DefaultCode;
 
-        // Of the API codes, the cancelled request, the missing token and the exceeded rate limit
-        // carry a translated detail: validation failures explain themselves in the errors map and
-        // unexpected errors return no detail.
+        // Of the API codes, the cancelled request, the missing token, the exceeded rate limit and the
+        // idempotency-key failures carry a translated detail: validation failures explain themselves
+        // in the errors map and unexpected errors return no detail.
         yield return ApiErrorCodes.RequestCancelled;
         yield return ApiErrorCodes.AuthenticationRequired;
         yield return ApiErrorCodes.TooManyRequests;
+        yield return ApiErrorCodes.IdempotencyKeyInvalid;
+        yield return ApiErrorCodes.IdempotencyKeyReused;
+        yield return ApiErrorCodes.IdempotencyKeyInProgress;
     }
 
     private static IEnumerable<string> ValidationMessageKeysUsedByCode()

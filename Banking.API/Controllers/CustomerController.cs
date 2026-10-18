@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Banking.API.Controllers;
 
-/// <summary>Customer registration (public) and lookup (own record only).</summary>
+/// <summary>Customer registration (public), lookup and account listing (own record only).</summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
@@ -15,11 +15,13 @@ namespace Banking.API.Controllers;
 public class CustomerController : ControllerBase
 {
     private readonly ICustomerService _customerService;
+    private readonly IBankAccountService _bankAccountService;
 
     /// <summary>Creates the controller.</summary>
-    public CustomerController(ICustomerService customerService)
+    public CustomerController(ICustomerService customerService, IBankAccountService bankAccountService)
     {
         _customerService = customerService;
+        _bankAccountService = bankAccountService;
     }
 
     /// <summary>Registers a new customer. This is the public sign-up: no token needed.</summary>
@@ -53,4 +55,20 @@ public class CustomerController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CustomerResponseDto>> GetCustomerById(int customerId, CancellationToken cancellationToken)
         => Ok(await _customerService.GetCustomerByIdAsync(customerId, cancellationToken));
+
+    /// <summary>Lists the accounts of a customer, oldest first. Only the authenticated customer's own accounts are accessible.</summary>
+    /// <remarks>
+    /// Accounts are a sub-collection of the customer, so the route hangs off <c>/api/Customer/{customerId}</c>
+    /// like the customer record itself; <c>/api/BankAccount</c> routes address a single account by its number.
+    /// A customer without accounts gets an empty list.
+    /// </remarks>
+    /// <param name="customerId">Customer identifier.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The customer's accounts, oldest first.</response>
+    /// <response code="404">The customer does not exist.</response>
+    [HttpGet("{customerId:int}/accounts")]
+    [ProducesResponseType(typeof(IReadOnlyList<BankAccountResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<BankAccountResponseDto>>> GetAccounts(int customerId, CancellationToken cancellationToken)
+        => Ok(await _bankAccountService.GetByCustomerIdAsync(customerId, cancellationToken));
 }

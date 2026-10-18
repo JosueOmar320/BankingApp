@@ -149,4 +149,62 @@ public class BankAccountServiceTests
             Assert.That(result.Balance, Is.EqualTo(100m));
         });
     }
+
+    [Test]
+    public async Task GetByCustomerIdAsync_ReturnsTheCustomersAccountsInRepositoryOrder()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
+        _accounts.Setup(a => a.GetByCustomerIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(
+        [
+            TestData.Account(customerId: 1, initialDeposit: 100m, accountNumber: "1111111111"),
+            TestData.Account(customerId: 1, initialDeposit: 250m, accountNumber: "2222222222"),
+        ]);
+
+        var result = await _service.GetByCustomerIdAsync(1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Select(account => account.AccountNumber), Is.EqualTo(new List<string> { "1111111111", "2222222222" }));
+            Assert.That(result.Select(account => account.Balance), Is.EqualTo(new List<decimal> { 100m, 250m }));
+            Assert.That(result, Has.All.Property(nameof(BankAccountResponseDto.CustomerId)).EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task GetByCustomerIdAsync_ReturnsAnEmptyList_WhenTheCustomerHasNoAccounts()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
+        _accounts.Setup(a => a.GetByCustomerIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync([]);
+
+        var result = await _service.GetByCustomerIdAsync(1);
+
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    public void GetByCustomerIdAsync_ThrowsNotFound_WhenTheCustomerDoesNotExist()
+    {
+        _caller.CustomerId = 99;
+        _customers.Setup(c => c.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((Customer?)null);
+
+        var ex = Assert.ThrowsAsync<NotFoundException>(() => _service.GetByCustomerIdAsync(99));
+
+        Assert.That(ex!.Code, Is.EqualTo(ApplicationErrorCodes.CustomerNotFound));
+        _accounts.Verify(a => a.GetByCustomerIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public void GetByCustomerIdAsync_ThrowsForbidden_ForAnotherCustomer_WithoutListingTheirAccounts()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer(documentNumber: "001-020290-0002B"));
+
+        var ex = Assert.ThrowsAsync<ForbiddenException>(() => _service.GetByCustomerIdAsync(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Code, Is.EqualTo(ApplicationErrorCodes.CustomerAccessDenied));
+            Assert.That(ex.MessageArguments, Is.EqualTo(new object[] { 2 }));
+        });
+        _accounts.Verify(a => a.GetByCustomerIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

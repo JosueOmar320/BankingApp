@@ -1,3 +1,4 @@
+using Banking.API.Idempotency;
 using Banking.API.RateLimiting;
 using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
@@ -7,7 +8,11 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace Banking.API.Controllers;
 
-/// <summary>Ledger operations: deposits, withdrawals, interest and account summaries, on the caller's own accounts.</summary>
+/// <summary>
+/// Ledger operations: deposits, withdrawals, interest, transfers and account summaries, on the caller's own
+/// accounts. Every money operation accepts an optional <c>Idempotency-Key</c> header so a retry after a
+/// timeout cannot apply the operation twice (see <see cref="IdempotencyFilter"/>).
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
@@ -28,14 +33,17 @@ public class TransactionController : ControllerBase
     /// <response code="200">The recorded transaction and the new balance.</response>
     /// <response code="400">The payload is invalid or the amount violates a business rule.</response>
     /// <response code="404">The account does not exist.</response>
-    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="409">The account was modified concurrently, or the first request with this <c>Idempotency-Key</c> is still running; retry the request.</response>
+    /// <response code="422">The <c>Idempotency-Key</c> was already used for a different request.</response>
     /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Deposit")]
+    [Idempotent]
     [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> Deposit(TransactionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.DepositAsync(request, cancellationToken));
@@ -46,14 +54,17 @@ public class TransactionController : ControllerBase
     /// <response code="200">The recorded transaction and the new balance.</response>
     /// <response code="400">The payload is invalid, the amount violates a business rule or funds are insufficient.</response>
     /// <response code="404">The account does not exist.</response>
-    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="409">The account was modified concurrently, or the first request with this <c>Idempotency-Key</c> is still running; retry the request.</response>
+    /// <response code="422">The <c>Idempotency-Key</c> was already used for a different request.</response>
     /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Withdrawal")]
+    [Idempotent]
     [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> Withdrawal(TransactionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.WithdrawAsync(request, cancellationToken));
@@ -64,14 +75,17 @@ public class TransactionController : ControllerBase
     /// <response code="200">The recorded interest transaction and the new balance.</response>
     /// <response code="400">The resulting interest is zero.</response>
     /// <response code="404">The account does not exist.</response>
-    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="409">The account was modified concurrently, or the first request with this <c>Idempotency-Key</c> is still running; retry the request.</response>
+    /// <response code="422">The <c>Idempotency-Key</c> was already used for a different request.</response>
     /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Apply-Interest")]
+    [Idempotent]
     [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> ApplyInterest(ApplyInterestRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.ApplyInterestAsync(request, cancellationToken));
@@ -86,14 +100,17 @@ public class TransactionController : ControllerBase
     /// <response code="200">The transfer and the new source balance.</response>
     /// <response code="400">The payload is invalid, both accounts are the same, the amount violates a business rule or funds are insufficient.</response>
     /// <response code="404">The source or the destination account does not exist.</response>
-    /// <response code="409">An account was modified concurrently; retry the request.</response>
+    /// <response code="409">An account was modified concurrently, or the first request with this <c>Idempotency-Key</c> is still running; retry the request.</response>
+    /// <response code="422">The <c>Idempotency-Key</c> was already used for a different request.</response>
     /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Transfer")]
+    [Idempotent]
     [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransferResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransferResponseDto>> Transfer(TransferRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.TransferAsync(request, cancellationToken));

@@ -215,4 +215,32 @@ public class BankAccountRepositoryTests
             Assert.That(unknownExists, Is.False);
         });
     }
+
+    [Test]
+    public async Task GetByCustomerIdAsync_ReturnsOnlyTheCustomersAccounts_OldestFirst()
+    {
+        int otherCustomerId;
+        await using (var setup = _database.CreateContext())
+        {
+            otherCustomerId = (await new CustomerRepository(setup).AddCustomerAsync(TestData.Customer(documentNumber: "001-020290-0002B", firstName: "Luis"))).CustomerId;
+
+            var repository = new BankAccountRepository(setup);
+            await repository.AddBankAccountAsync(BankAccount.Open("3333333333", _customerId, 30m, TestData.Now.AddDays(2)));
+            await repository.AddBankAccountAsync(BankAccount.Open("1111111111", _customerId, 10m, TestData.Now));
+            await repository.AddBankAccountAsync(BankAccount.Open("9999999999", otherCustomerId, 90m, TestData.Now.AddDays(1)));
+            await repository.AddBankAccountAsync(BankAccount.Open("2222222222", _customerId, 20m, TestData.Now.AddDays(1)));
+        }
+
+        await using var context = _database.CreateContext();
+        var accounts = await new BankAccountRepository(context).GetByCustomerIdAsync(_customerId);
+        var none = await new BankAccountRepository(context).GetByCustomerIdAsync(999);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(accounts.Select(a => a.AccountNumber), Is.EqualTo(new List<string> { "1111111111", "2222222222", "3333333333" }));
+            Assert.That(accounts.Select(a => a.CreatedAt), Is.Ordered);
+            Assert.That(accounts, Has.All.Property(nameof(BankAccount.CustomerId)).EqualTo(_customerId));
+            Assert.That(none, Is.Empty);
+        });
+    }
 }

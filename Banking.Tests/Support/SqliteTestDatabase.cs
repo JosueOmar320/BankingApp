@@ -18,18 +18,18 @@ internal sealed class SqliteTestDatabase : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
+        Options = new DbContextOptionsBuilder<BankingDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+
         using var context = CreateContext();
         context.Database.EnsureCreated();
     }
 
-    public BankingDbContext CreateContext()
-    {
-        var options = new DbContextOptionsBuilder<BankingDbContext>()
-            .UseSqlite(_connection)
-            .Options;
+    /// <summary>Options bound to this database, for components that open their own contexts.</summary>
+    public DbContextOptions<BankingDbContext> Options { get; }
 
-        return new BankingDbContext(options);
-    }
+    public BankingDbContext CreateContext() => new(Options);
 
     public void Dispose() => _connection.Dispose();
 }

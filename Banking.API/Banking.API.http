@@ -53,6 +53,10 @@ Content-Type: application/json
 GET {{host}}/api/Customer/1
 Authorization: Bearer {{token}}
 
+### List my accounts, oldest first (Luis' token would get a 403)
+GET {{host}}/api/Customer/1/accounts
+Authorization: Bearer {{token}}
+
 ### Open another account for myself (customerId must be mine)
 POST {{host}}/api/BankAccount
 Content-Type: application/json
@@ -79,6 +83,29 @@ Authorization: Bearer {{token}}
 {
   "accountNumber": "1000000001",
   "amount": 50.25
+}
+
+### Deposit with an Idempotency-Key: run it twice. The second run replays the first response
+### (same transactionId, Idempotent-Replayed: true) and the balance moves only once.
+POST {{host}}/api/Transaction/Deposit
+Content-Type: application/json
+Authorization: Bearer {{token}}
+Idempotency-Key: deposit-2026-10-18-0001
+
+{
+  "accountNumber": "1000000001",
+  "amount": 10
+}
+
+### Same key, different amount: 422 problem with code IdempotencyKeyReused (nothing is applied)
+POST {{host}}/api/Transaction/Deposit
+Content-Type: application/json
+Authorization: Bearer {{token}}
+Idempotency-Key: deposit-2026-10-18-0001
+
+{
+  "accountNumber": "1000000001",
+  "amount": 11
 }
 
 ### Withdrawal
@@ -153,5 +180,11 @@ GET {{host}}/api/BankAccount/1000000001/balance
 GET {{host}}/api/BankAccount/1000000001/balance
 Authorization: Bearer {{luisToken}}
 
-### Health (public)
+### Health (public): every check, including the database, as JSON
 GET {{host}}/health
+
+### Liveness (public): the process answers; no checks run
+GET {{host}}/health/live
+
+### Readiness (public): 200 while the database answers SELECT 1, 503 otherwise
+GET {{host}}/health/ready

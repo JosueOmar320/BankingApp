@@ -30,6 +30,12 @@ public static class ProblemTitles
     /// <summary>403: the resource belongs to another customer.</summary>
     public const string Forbidden = "Title.Forbidden";
 
+    /// <summary>422: the idempotency key was already used for a different request.</summary>
+    public const string IdempotencyKeyReused = "Title.IdempotencyKeyReused";
+
+    /// <summary>409: the first request with the idempotency key is still running.</summary>
+    public const string IdempotencyKeyInProgress = "Title.IdempotencyKeyInProgress";
+
     /// <summary>429: the caller exceeded a rate limit.</summary>
     public const string TooManyRequests = "Title.TooManyRequests";
 

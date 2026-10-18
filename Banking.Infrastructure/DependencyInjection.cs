@@ -1,4 +1,6 @@
 using Banking.Domain.Interfaces;
+using Banking.Infrastructure.Health;
+using Banking.Infrastructure.Idempotency;
 using Banking.Infrastructure.Persistence;
 using Banking.Infrastructure.Repositories;
 using Banking.Infrastructure.Security;
@@ -10,7 +12,10 @@ using Microsoft.Extensions.Hosting;
 
 namespace Banking.Infrastructure;
 
-/// <summary>Registers the SQLite <see cref="BankingDbContext"/>, the repositories and the password hasher.</summary>
+/// <summary>
+/// Registers the SQLite <see cref="BankingDbContext"/>, the repositories, the password hasher, the
+/// database health check and the idempotency-key store with its cleanup service.
+/// </summary>
 public static class DependencyInjection
 {
     public const string ConnectionStringName = "DefaultConnection";
@@ -32,7 +37,16 @@ public static class DependencyInjection
             options.UseSqlite(ResolveDataSource(connectionString, environment.ContentRootPath));
         });
 
-        return services.AddRepositories();
+        services.AddRepositories();
+
+        // Readiness: the database answers a query. /health/ready selects checks by this tag.
+        services.AddHealthChecks().AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name, tags: [DatabaseHealthCheck.ReadyTag]);
+
+        // Idempotency-Key storage and purge; the host binds and validates IdempotencyOptions.
+        services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+        services.AddHostedService<IdempotencyKeyCleanupService>();
+
+        return services;
     }
 
     /// <summary>

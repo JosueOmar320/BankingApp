@@ -151,7 +151,10 @@ app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
+    // Microsoft.OpenApi writes "3.0.4" for OpenAPI 3.0, and the Swagger UI bundled with Swashbuckle
+    // rejects that version string ("Unable to render this definition"); it renders 3.1.x, so the
+    // document is served as OpenAPI 3.1.
+    app.UseSwagger(options => options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1);
     app.UseSwaggerUI();
 }
 

@@ -31,6 +31,19 @@ public class SwaggerDocumentTests
     }
 
     [Test]
+    public async Task SwaggerJson_UsesAnOpenApiVersionTheBundledUiRenders()
+    {
+        // Microsoft.OpenApi writes "3.0.4" for OpenAPI 3.0 and the bundled Swagger UI rejects it with
+        // "Unable to render this definition" (it accepts 3.0.0-3.0.3 and 3.1.x), so the API serves 3.1.
+        using var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.That(document.RootElement.GetProperty("openapi").GetString(), Does.Match(@"^3\.1\.\d+$"));
+    }
+
+    [Test]
     public async Task SwaggerJson_ReportsTheAssemblyVersion()
     {
         using var response = await _client.GetAsync("/swagger/v1/swagger.json");

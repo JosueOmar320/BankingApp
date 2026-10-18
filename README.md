@@ -489,14 +489,14 @@ docker compose down -v
 
 Every release is also published to GitHub Container Registry as
 [`ghcr.io/josueomar320/bankingapp`](https://github.com/JosueOmar320/BankingApp/pkgs/container/bankingapp), tagged with
-the version (`1.0.0`), `latest` and the commit (`sha-<commit>`). The image runs in `Production`, so it needs its own
+the version (`1.0.1`), `latest` and the commit (`sha-<commit>`). The image runs in `Production`, so it needs its own
 JWT signing key and keeps the database in `/data`:
 
 ```bash
 docker run --rm -p 8080:8080 \
   -e Jwt__SigningKey="$(openssl rand -base64 48)" \
   -v banking-data:/data \
-  ghcr.io/josueomar320/bankingapp:1.0.0
+  ghcr.io/josueomar320/bankingapp:1.0.1
 ```
 
 Then check `http://localhost:8080/health`. Swagger and the sample data are off outside `Development`; to try the

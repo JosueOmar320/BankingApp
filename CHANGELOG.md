@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-18
+
+### Fixed
+
+- Swagger UI showed "Unable to render this definition" when the API ran in Development (Rider, `dotnet run`,
+  `docker compose`): Microsoft.OpenApi 2 declares OpenAPI `3.0.4`, which the Swagger UI bundled with Swashbuckle 10
+  does not accept. The document is now served as OpenAPI 3.1 and a test guards the declared version. The published
+  Docker image was not affected, since it runs in Production without Swagger
+
 ## [1.0.0] - 2026-10-18
 
 First release of the Banking API: an ASP.NET Core Web API on .NET 10 LTS with Clean Architecture, a rich domain
@@ -166,5 +175,6 @@ base.
   ([#1](https://github.com/JosueOmar320/BankingApp/pull/1), [#25](https://github.com/JosueOmar320/BankingApp/pull/25)).
 - The Docker image runs as the non-root `app` user ([#4](https://github.com/JosueOmar320/BankingApp/pull/4)).
 
-[Unreleased]: https://github.com/JosueOmar320/BankingApp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/JosueOmar320/BankingApp/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/JosueOmar320/BankingApp/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/JosueOmar320/BankingApp/releases/tag/v1.0.0

@@ -9,6 +9,9 @@ public interface IBankAccountRepository
     /// <summary>Gets an account (tracked, ready to be modified) or <see langword="null"/>.</summary>
     Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets every account of a customer, oldest first (read-only, not tracked). Empty when the customer has none.</summary>
+    Task<IReadOnlyList<BankAccount>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default);
+
     /// <summary>Checks whether an account number is already taken.</summary>
     Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
 

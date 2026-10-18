@@ -62,6 +62,21 @@ internal sealed class BankAccountService : IBankAccountService
         return account.ToDto();
     }
 
+    public async Task<IReadOnlyList<BankAccountResponseDto>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default)
+    {
+        // Same order as the customer lookup: an unknown customer is a 404, someone else's a 403.
+        if (await _customerRepository.GetCustomerByIdAsync(customerId, cancellationToken) is null)
+        {
+            throw new NotFoundException("Customer", customerId);
+        }
+
+        _currentCustomer.EnsureIs(customerId);
+
+        var accounts = await _bankAccountRepository.GetByCustomerIdAsync(customerId, cancellationToken);
+
+        return accounts.Select(account => account.ToDto()).ToList();
+    }
+
     public async Task<AccountBalanceDto> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
     {
         var account = await LoadOwnAccountAsync(accountNumber, cancellationToken);

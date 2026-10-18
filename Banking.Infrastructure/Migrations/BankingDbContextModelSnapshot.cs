@@ -133,6 +133,40 @@ namespace Banking.Infrastructure.Migrations
                     b.ToTable("Transactions", (string)null);
                 });
 
+            modelBuilder.Entity("Banking.Infrastructure.Idempotency.IdempotencyKey", b =>
+                {
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResponseContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ResponseStatusCode")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CustomerId", "Key");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("IdempotencyKeys", (string)null);
+                });
+
             modelBuilder.Entity("Banking.Domain.Entities.BankAccount", b =>
                 {
                     b.HasOne("Banking.Domain.Entities.Customer", null)
@@ -148,6 +182,15 @@ namespace Banking.Infrastructure.Migrations
                         .WithMany("Transactions")
                         .HasForeignKey("BankAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Banking.Infrastructure.Idempotency.IdempotencyKey", b =>
+                {
+                    b.HasOne("Banking.Domain.Entities.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

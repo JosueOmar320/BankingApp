@@ -19,6 +19,14 @@ public sealed class BankAccountRepository : IBankAccountRepository
     public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
         => _context.BankAccounts.FirstOrDefaultAsync(a => a.AccountNumber == accountNumber, cancellationToken);
 
+    public async Task<IReadOnlyList<BankAccount>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default)
+        => await _context.BankAccounts
+            .AsNoTracking()
+            .Where(a => a.CustomerId == customerId)
+            .OrderBy(a => a.CreatedAt)
+            .ThenBy(a => a.BankAccountId)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> ExistsByNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
         => _context.BankAccounts.AnyAsync(a => a.AccountNumber == accountNumber, cancellationToken);
 

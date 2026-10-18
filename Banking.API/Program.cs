@@ -1,12 +1,15 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Banking.API.Auth;
+using Banking.API.Health;
+using Banking.API.Idempotency;
 using Banking.API.Localization;
 using Banking.API.Middleware;
 using Banking.API.RateLimiting;
 using Banking.Application;
 using Banking.Application.Interfaces;
 using Banking.Infrastructure;
+using Banking.Infrastructure.Idempotency;
 using Banking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -107,6 +110,7 @@ builder.Services.AddSwaggerGen(options =>
     });
     options.OperationFilter<BearerSecurityOperationFilter>();
     options.OperationFilter<AcceptLanguageOperationFilter>();
+    options.OperationFilter<IdempotencyKeyOperationFilter>();
 
     foreach (var xml in new[] { Assembly.GetExecutingAssembly().GetName().Name, typeof(Banking.Application.DependencyInjection).Assembly.GetName().Name })
     {
@@ -118,12 +122,20 @@ builder.Services.AddSwaggerGen(options =>
     }
 });
 
+// Infrastructure also registers the database health check behind /health and /health/ready.
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
-builder.Services.AddHealthChecks();
 
 // Fixed-window limits: login/registration per IP address, money operations per customer (see appsettings.json).
 builder.Services.AddBankingRateLimiting(builder.Configuration);
+
+// Optional Idempotency-Key header on money operations: the first response is stored per customer and
+// replayed on a retry (see appsettings.json for how long keys are kept).
+builder.Services.AddOptions<IdempotencyOptions>()
+    .BindConfiguration(IdempotencyOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddScoped<IdempotencyFilter>();
 
 var app = builder.Build();
 
@@ -150,7 +162,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
-app.MapHealthChecks("/health").AllowAnonymous();
+app.MapBankingHealthChecks();
 
 // Create/upgrade the SQLite schema on start; sample data only when "Database:SeedSampleData" is true.
 await app.Services.InitializeDatabaseAsync(seedSampleData: app.Configuration.GetValue<bool>("Database:SeedSampleData"));

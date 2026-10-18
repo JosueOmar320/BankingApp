@@ -166,4 +166,70 @@ public class CustomerEndpointsTests : ApiTestBase
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Json);
         Assert.That(problem!.Detail, Does.Contain("DUP-1"));
     }
+
+    [Test]
+    public async Task GetAccounts_ReturnsTheCustomersAccounts_OldestFirst()
+    {
+        var customer = await CreateCustomerAsync();
+        var first = await OpenAccountAsync(customer.CustomerId, 100m);
+        var second = await OpenAccountAsync(customer.CustomerId, 250m);
+
+        var accounts = await Client.GetFromJsonAsync<List<BankAccountResponseDto>>($"/api/Customer/{customer.CustomerId}/accounts", Json);
+
+        Assert.That(accounts, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(accounts!.Select(a => a.AccountNumber), Is.EqualTo(new[] { first.AccountNumber, second.AccountNumber }));
+            Assert.That(accounts.Select(a => a.CreatedAt), Is.Ordered);
+            Assert.That(accounts[1].Balance, Is.EqualTo(250m));
+            Assert.That(accounts, Has.All.Property(nameof(BankAccountResponseDto.CustomerId)).EqualTo(customer.CustomerId));
+        });
+    }
+
+    [Test]
+    public async Task GetAccounts_ReturnsAnEmptyList_ForACustomerWithoutAccounts()
+    {
+        var customer = await CreateCustomerAsync();
+
+        var response = await Client.GetAsync($"/api/Customer/{customer.CustomerId}/accounts");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(await response.Content.ReadFromJsonAsync<List<BankAccountResponseDto>>(Json), Is.Empty);
+    }
+
+    [Test]
+    public async Task GetAccounts_OfAnotherCustomer_Returns403Problem()
+    {
+        var other = await CreateCustomerAsync();
+        await OpenAccountAsync(other.CustomerId);
+        await CreateCustomerAsync();
+
+        var response = await Client.GetAsync($"/api/Customer/{other.CustomerId}/accounts");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Json);
+        Assert.That(problem!.Extensions["code"]!.ToString(), Is.EqualTo(ApplicationErrorCodes.CustomerAccessDenied));
+    }
+
+    [Test]
+    public async Task GetAccounts_OfAnUnknownCustomer_Returns404Problem()
+    {
+        await CreateCustomerAsync();
+
+        var response = await Client.GetAsync("/api/Customer/999999/accounts");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Json);
+        Assert.That(problem!.Extensions["code"]!.ToString(), Is.EqualTo(ApplicationErrorCodes.CustomerNotFound));
+    }
+
+    [Test]
+    public async Task GetAccounts_WithoutAToken_Returns401()
+    {
+        UseToken(null);
+
+        var response = await Client.GetAsync("/api/Customer/1/accounts");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
 }

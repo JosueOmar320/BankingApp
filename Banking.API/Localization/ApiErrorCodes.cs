@@ -15,6 +15,15 @@ public static class ApiErrorCodes
     /// <summary>The caller exceeded a rate limit; the <c>Retry-After</c> header says when to try again.</summary>
     public const string TooManyRequests = nameof(TooManyRequests);
 
+    /// <summary>The <c>Idempotency-Key</c> header is empty, too long or has characters other than visible ASCII. Arguments: maximum length.</summary>
+    public const string IdempotencyKeyInvalid = nameof(IdempotencyKeyInvalid);
+
+    /// <summary>The <c>Idempotency-Key</c> was already used by the customer for a request with another body or route. Arguments: the key.</summary>
+    public const string IdempotencyKeyReused = nameof(IdempotencyKeyReused);
+
+    /// <summary>The first request with this <c>Idempotency-Key</c> is still running. Arguments: the key.</summary>
+    public const string IdempotencyKeyInProgress = nameof(IdempotencyKeyInProgress);
+
     /// <summary>The client disconnected before the request completed.</summary>
     public const string RequestCancelled = nameof(RequestCancelled);
 

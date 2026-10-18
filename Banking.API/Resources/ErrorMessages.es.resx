@@ -148,4 +148,19 @@
   <data name="SameAccountTransfer" xml:space="preserve">
     <value>Las cuentas de origen y destino de una transferencia deben ser distintas.</value>
   </data>
+  <data name="Title.IdempotencyKeyReused" xml:space="preserve">
+    <value>Clave de idempotencia reutilizada</value>
+  </data>
+  <data name="Title.IdempotencyKeyInProgress" xml:space="preserve">
+    <value>Solicitud en curso</value>
+  </data>
+  <data name="IdempotencyKeyInvalid" xml:space="preserve">
+    <value>El encabezado Idempotency-Key debe tener entre 1 y {0} caracteres ASCII visibles.</value>
+  </data>
+  <data name="IdempotencyKeyReused" xml:space="preserve">
+    <value>La clave de idempotencia '{0}' ya se usó para una solicitud distinta. Use una clave nueva para cada operación distinta.</value>
+  </data>
+  <data name="IdempotencyKeyInProgress" xml:space="preserve">
+    <value>Una solicitud con la clave de idempotencia '{0}' todavía se está procesando. Espere su respuesta antes de reintentar.</value>
+  </data>
 </root>

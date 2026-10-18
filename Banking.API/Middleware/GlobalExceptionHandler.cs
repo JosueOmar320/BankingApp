@@ -1,4 +1,5 @@
 using System.Globalization;
+using Banking.API.Idempotency;
 using Banking.API.Localization;
 using Banking.API.Resources;
 using Banking.Application.Exceptions;
@@ -15,6 +16,7 @@ namespace Banking.API.Middleware;
 /// <item><see cref="InvalidCredentialsException"/> → 401</item>
 /// <item><see cref="ForbiddenException"/> → 403</item>
 /// <item><see cref="NotFoundException"/> → 404</item>
+/// <item><see cref="IdempotencyKeyException"/> → the status it carries (400, 409 or 422)</item>
 /// <item><see cref="DuplicateDocumentNumberException"/>, <see cref="ConcurrencyConflictException"/> → 409</item>
 /// <item><see cref="DomainException"/> (business rule violated) → 400</item>
 /// <item>anything else → 500 without leaking internals</item>
@@ -51,6 +53,7 @@ public sealed partial class GlobalExceptionHandler : IExceptionHandler
             InvalidCredentialsException => (StatusCodes.Status401Unauthorized, ProblemTitles.InvalidCredentials),
             ForbiddenException => (StatusCodes.Status403Forbidden, ProblemTitles.Forbidden),
             NotFoundException => (StatusCodes.Status404NotFound, ProblemTitles.NotFound),
+            IdempotencyKeyException idempotency => (idempotency.StatusCode, idempotency.TitleKey),
             DuplicateDocumentNumberException => (StatusCodes.Status409Conflict, ProblemTitles.DuplicateDocumentNumber),
             ConcurrencyConflictException => (StatusCodes.Status409Conflict, ProblemTitles.ConcurrencyConflict),
             InsufficientFundsException => (StatusCodes.Status400BadRequest, ProblemTitles.InsufficientFunds),

@@ -148,4 +148,19 @@
   <data name="SameAccountTransfer" xml:space="preserve">
     <value>The source and destination accounts of a transfer must be different.</value>
   </data>
+  <data name="Title.IdempotencyKeyReused" xml:space="preserve">
+    <value>Idempotency key reused</value>
+  </data>
+  <data name="Title.IdempotencyKeyInProgress" xml:space="preserve">
+    <value>Request in progress</value>
+  </data>
+  <data name="IdempotencyKeyInvalid" xml:space="preserve">
+    <value>The Idempotency-Key header must have between 1 and {0} visible ASCII characters.</value>
+  </data>
+  <data name="IdempotencyKeyReused" xml:space="preserve">
+    <value>Idempotency key '{0}' was already used for a different request. Use a new key for each distinct operation.</value>
+  </data>
+  <data name="IdempotencyKeyInProgress" xml:space="preserve">
+    <value>A request with idempotency key '{0}' is still being processed. Wait for its response before retrying.</value>
+  </data>
 </root>

@@ -22,10 +22,12 @@ No database file is checked in: the SQLite database is created and migrated auto
 
 - Register customers (public sign-up with a password) and log in to obtain a **JWT bearer token**
 - **Authorization per account holder**: every account operation is limited to the authenticated owner (`403` otherwise)
-- Open bank accounts with an opening deposit
+- Open bank accounts with an opening deposit and list your own accounts
 - Check account details and balance
 - Deposits, withdrawals and interest application
 - **Transfers** between accounts, even across customers, recorded on both ledgers in one transaction
+- **Idempotent money operations**: an optional `Idempotency-Key` header makes a retried deposit, withdrawal, interest
+  or transfer return the first response instead of applying the operation twice
 - Paginated transaction history with totals and final balance
 - Business rules enforced in the domain model:
   - opening deposit of at least **10.00**
@@ -39,7 +41,8 @@ No database file is checked in: the SQLite database is created and migrated auto
 - Consistent error contract: every error is an [RFC 7807 problem details](https://www.rfc-editor.org/rfc/rfc7807) response, including `401`/`403`/`429`, with the request's correlation id
 - **Rate limits** on login, registration and money operations (`429` + `Retry-After`), and an `X-Correlation-Id` on every response
 - Error messages in **English or Spanish** (`Accept-Language`), each with a stable `code` so clients never parse text
-- Swagger UI with XML documentation and an **Authorize** button for the bearer token, `/health` endpoint, structured logging with source-generated log messages
+- Swagger UI with XML documentation and an **Authorize** button for the bearer token, structured logging with source-generated log messages
+- **Health checks** that actually check: `/health` and `/health/ready` run a query against the database, `/health/live` only says the process is up
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
 - GitHub Actions CI: format check, build with warnings as errors, tests and NuGet vulnerability audit
 - Multi-stage `Dockerfile` (non-root runtime image) and `docker-compose.yml` with a persistent volume for the database
@@ -54,8 +57,8 @@ The solution follows **Clean Architecture**, with dependencies pointing inward:
 | ------------------------ | ------------------------------------------------------------------------------------------------ |
 | `Banking.Domain`         | Entities with behaviour (`BankAccount` is the aggregate that owns the ledger, `Customer` owns the password policy and hash), rules, domain exceptions with stable error codes, repository and `IPasswordHasher` interfaces. No framework dependencies. |
 | `Banking.Application`    | Use cases (services, including login and the ownership checks), request/response DTOs with localized validation messages, `NotFoundException`, `ForbiddenException`, `InvalidCredentialsException`, `ICurrentCustomer` / `IAccessTokenIssuer` ports |
-| `Banking.Infrastructure` | EF Core `DbContext`, Fluent API configurations, SQLite migrations, repositories, PBKDF2 password hasher, start-up migration and dev seeding |
-| `Banking.API`            | Controllers, JWT bearer authentication (token issuer, `sub` claim → current customer), global exception handler (problem details), localization (`Accept-Language`, `.resx`), Swagger, composition root |
+| `Banking.Infrastructure` | EF Core `DbContext`, Fluent API configurations, SQLite migrations, repositories, PBKDF2 password hasher, start-up migration and dev seeding, database health check, `Idempotency-Key` store and its cleanup service |
+| `Banking.API`            | Controllers, JWT bearer authentication (token issuer, `sub` claim → current customer), global exception handler (problem details), localization (`Accept-Language`, `.resx`), idempotency filter, health endpoints, Swagger, composition root |
 | `Banking.Tests`          | Domain, service, repository and HTTP integration tests                                           |
 
 Key design decisions:
@@ -106,18 +109,25 @@ Key design decisions:
 | `POST` | `/api/Customer`                            | public   | `CreateCustomerDto` (incl. `password`) | Register a customer (`201` + `Location`)      |
 | `POST` | `/api/Auth/login`                          | public   | `{ documentNumber, password }`         | Get a JWT (`200`, `401` on bad credentials)   |
 | `GET`  | `/api/Customer/{customerId}`               | own      |                                        | Get a customer                                |
+| `GET`  | `/api/Customer/{customerId}/accounts`      | own      |                                        | List the customer's accounts, oldest first    |
 | `POST` | `/api/BankAccount`                         | own      | `{ customerId, initialDeposit }`       | Open an account for yourself (`201` + `Location`) |
 | `GET`  | `/api/BankAccount/{accountNumber}`         | owner    |                                        | Get an account                                |
 | `GET`  | `/api/BankAccount/{accountNumber}/balance` | owner    |                                        | Get the balance                               |
-| `POST` | `/api/Transaction/Deposit`                 | owner    | `{ accountNumber, amount }`            | Deposit                                       |
-| `POST` | `/api/Transaction/Withdrawal`              | owner    | `{ accountNumber, amount }`            | Withdraw                                      |
-| `POST` | `/api/Transaction/Apply-Interest`          | owner    | `{ accountNumber }`                    | Credit 10% interest on the balance            |
-| `POST` | `/api/Transaction/Transfer`                | owner    | `{ sourceAccountNumber, destinationAccountNumber, amount }` | Move money from your account to any other account |
+| `POST` | `/api/Transaction/Deposit`                 | owner    | `{ accountNumber, amount }`            | Deposit (accepts `Idempotency-Key`)           |
+| `POST` | `/api/Transaction/Withdrawal`              | owner    | `{ accountNumber, amount }`            | Withdraw (accepts `Idempotency-Key`)          |
+| `POST` | `/api/Transaction/Apply-Interest`          | owner    | `{ accountNumber }`                    | Credit 10% interest on the balance (accepts `Idempotency-Key`) |
+| `POST` | `/api/Transaction/Transfer`                | owner    | `{ sourceAccountNumber, destinationAccountNumber, amount }` | Move money from your account to any other account (accepts `Idempotency-Key`) |
 | `GET`  | `/api/Transaction/{accountNumber}/summary` | owner    | `?page=1&pageSize=50`                  | Ledger totals, final balance and one page of transactions |
-| `GET`  | `/health`                                  | public   |                                        | Liveness check                                |
+| `GET`  | `/health`                                  | public   |                                        | Full health report (every check, database included) |
+| `GET`  | `/health/live`                             | public   |                                        | Liveness: the process answers HTTP            |
+| `GET`  | `/health/ready`                            | public   |                                        | Readiness: the database answers a query (`503` otherwise) |
 
 *own* / *owner*: a bearer token is required, and the customer or account must belong to the authenticated customer
 (`401` without a valid token, `403` for someone else's data).
+
+The account list lives under the customer (`/api/Customer/{customerId}/accounts`) because accounts are a sub-collection
+of the customer record, next to `GET /api/Customer/{customerId}`; the `/api/BankAccount` routes address one account by
+its number. A customer without accounts gets an empty list, someone else's customer id a `403`, an unknown id a `404`.
 
 A transfer debits the caller's source account (`TransferOut`) and credits the destination (`TransferIn`) in one database
 transaction; the destination may belong to another customer and only has to exist. Both accounts use optimistic
@@ -141,6 +151,45 @@ the whole ledger, while `transactions` holds one page (oldest first) and `page` 
 ```
 
 `page` defaults to 1 and `pageSize` to 50 (maximum 200); values out of range return a `400` validation problem.
+
+### Idempotent money operations
+
+A client that times out while depositing cannot know whether the deposit happened, and a blind retry would apply it
+twice. The four money operations (`Deposit`, `Withdrawal`, `Apply-Interest`, `Transfer`) therefore accept an optional
+**`Idempotency-Key`** header: any client-generated string of 1 to 128 visible ASCII characters, typically a UUID, one per
+logical operation.
+
+```bash
+curl -s -X POST http://localhost:5200/api/Transaction/Deposit \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 8f0c6a1e-5b2d-4c3e-9f7a-1d2e3f4a5b6c" \
+  -d '{ "accountNumber": "1000000001", "amount": 10 }'
+```
+
+| Situation                                                                    | Result                                                                 |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| First request with the key                                                   | The operation runs; a `2xx` response is stored under the key           |
+| Same key, same method, route and body                                        | The stored status and JSON are returned as is, with `Idempotent-Replayed: true`; nothing is applied again |
+| Same key, different body or different operation                              | `422 Unprocessable Entity`, code `IdempotencyKeyReused`; nothing is applied |
+| Same key while the first request is still running                            | `409 Conflict`, code `IdempotencyKeyInProgress`; retry after the first response arrives |
+| First request failed (`4xx`, `5xx`, concurrency conflict…)                   | The key is released, so the same request can be retried with the same key once the cause is fixed |
+| Malformed header (empty, longer than 128, spaces or control characters)       | `400`, code `IdempotencyKeyInvalid`                                    |
+| No header                                                                    | Unchanged behaviour: every request is applied                          |
+
+`422` was chosen over `409` for a reused key: the request is well-formed and there is no concurrent conflict; its content
+contradicts an earlier request with the same key, which is what the IETF `Idempotency-Key` draft recommends `422` for,
+keeping `409` for the in-progress case (and for the account concurrency conflicts the API already reports).
+
+Keys are **private to the authenticated customer**: the same key sent by two customers is two independent operations.
+They are stored in the `IdempotencyKeys` table (customer, key, SHA-256 fingerprint of method + route + body, response
+status, content type, body and timestamp): the row is inserted *before* the operation runs, which is what blocks a
+concurrent duplicate, and completed with the response afterwards. A background service deletes keys older than
+`Idempotency:KeyLifetimeHours` (24 by default) at start-up and then every `Idempotency:CleanupIntervalMinutes`. A
+reservation that never completed (the process died in between) is taken over by the next identical request after
+`Idempotency:PendingTimeoutSeconds`. The implementation is an MVC resource filter (`[Idempotent]` on the four actions)
+that stores through `IIdempotencyStore` in `Banking.Infrastructure`; the use cases know nothing about it, and the stored
+response is the exact bytes the first request received.
 
 Enums travel as strings (`"gender": "F"`, `"transactionType": "Deposit"`). Full schemas are in Swagger, and
 [`Banking.API/Banking.API.http`](Banking.API/Banking.API.http) contains ready-to-run requests.
@@ -213,10 +262,12 @@ All errors use `application/problem+json`:
 | ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `400`  | Invalid payload (`ValidationProblemDetails` with an `errors` map)                      | `ValidationFailed`                                                                       |
 | `400`  | Business rule violated                                                                 | `InsufficientFunds`, `DepositBelowMinimum`, `AmountNotPositive`, `AmountTooManyDecimals`, `InterestRoundsToZero`, `SameAccountTransfer`, `BirthDateInFuture`, `PasswordTooShort`, … (see `DomainErrorCodes`) |
+| `400`  | Malformed `Idempotency-Key` header                                                     | `IdempotencyKeyInvalid`                                                                  |
 | `401`  | No valid bearer token (missing, expired or tampered; `WWW-Authenticate: Bearer` is set), or wrong login credentials | `AuthenticationRequired`, `InvalidCredentials`                      |
 | `403`  | The account or customer belongs to another customer                                    | `AccountAccessDenied`, `CustomerAccessDenied`                                            |
 | `404`  | Customer or account does not exist                                                     | `CustomerNotFound`, `AccountNotFound`                                                    |
-| `409`  | Duplicate document number, or the account changed concurrently (retry the request)    | `DuplicateDocumentNumber`, `ConcurrencyConflict`, `AccountNumberTaken`                   |
+| `409`  | Duplicate document number, the account changed concurrently (retry the request), or the first request with this `Idempotency-Key` is still running | `DuplicateDocumentNumber`, `ConcurrencyConflict`, `AccountNumberTaken`, `IdempotencyKeyInProgress` |
+| `422`  | The `Idempotency-Key` was already used for a request with another body or route        | `IdempotencyKeyReused`                                                                   |
 | `429`  | Rate limit exceeded (`Retry-After` header says when to retry)                           | `TooManyRequests`                                                                        |
 | `500`  | Unexpected error (details are logged, never returned)                                  | `UnexpectedError`                                                                        |
 
@@ -306,11 +357,38 @@ Two fixed-window rate limits protect the API, both configurable under `RateLimit
 | Policy             | Applies to                                             | Partition              | Default           |
 | ------------------ | ------------------------------------------------------ | ---------------------- | ----------------- |
 | `Authentication`   | `POST /api/Auth/login`, `POST /api/Customer`           | client IP address      | 10 per 60 seconds |
-| `MoneyOperations`  | `Deposit`, `Withdrawal`, `Apply-Interest`              | authenticated customer | 30 per 60 seconds |
+| `MoneyOperations`  | `Deposit`, `Withdrawal`, `Apply-Interest`, `Transfer`  | authenticated customer | 30 per 60 seconds |
 
 A rejected request gets a `429` problem response (`code: "TooManyRequests"`, translated like every other error) and a
 `Retry-After` header with the seconds to wait. Reads are not limited. Behind a reverse proxy, enable forwarded headers
 so the address partition sees the real client.
+
+### Health checks
+
+Three anonymous endpoints answer with the same JSON report (`200` when healthy, `503` otherwise):
+
+| Route           | Checks run                                           | Use it for                                              |
+| --------------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| `/health`       | every registered check (today: `database`)           | `docker-compose` `HEALTHCHECK`, a quick manual look     |
+| `/health/live`  | none: `200` as long as the process answers           | Kubernetes liveness probe (restart only if the process hangs) |
+| `/health/ready` | checks tagged `ready`: the database answers `SELECT 1` | readiness probe / load balancer (stop routing while the database is unreachable) |
+
+```bash
+curl -s http://localhost:5200/health
+```
+
+```json
+{
+  "status": "Healthy",
+  "totalDuration": "00:00:00.0031234",
+  "checks": {
+    "database": { "status": "Healthy", "description": "The database answers queries.", "duration": "00:00:00.0028711" }
+  }
+}
+```
+
+The database check lives in `Banking.Infrastructure` (it knows the `DbContext`); the response never includes exception
+details, which go to the logs.
 
 ### Sample data (Development only)
 
@@ -383,7 +461,8 @@ docker compose up --build
 ```
 
 Then open `http://localhost:8080/swagger` (Swagger is enabled because the compose file runs the API in
-`Development`) or check `http://localhost:8080/health`. The compose file passes three settings as environment
+`Development`) or check `http://localhost:8080/health` (the image's `HEALTHCHECK` polls it, so `docker ps` shows
+`healthy` only while the database answers). The compose file passes three settings as environment
 variables, which you can override:
 
 | Variable                 | Default                   | Purpose                                                          |
@@ -410,7 +489,10 @@ docker compose down -v
 | `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root. The file is git-ignored and created on first run |
 | `Database:SeedSampleData`            | `false` (`true` in Development)                      | Insert the sample accounts when the DB is empty |
 | `RateLimiting:Authentication:PermitLimit` / `WindowSeconds` | `10` / `60`                   | Login and registration attempts per IP address and window |
-| `RateLimiting:MoneyOperations:PermitLimit` / `WindowSeconds` | `30` / `60`                  | Deposits, withdrawals and interest per customer and window |
+| `RateLimiting:MoneyOperations:PermitLimit` / `WindowSeconds` | `30` / `60`                  | Deposits, withdrawals, interest and transfers per customer and window |
+| `Idempotency:KeyLifetimeHours`       | `24`                                                 | How long an `Idempotency-Key` and its stored response are kept (1 hour to 30 days) |
+| `Idempotency:CleanupIntervalMinutes` | `60`                                                 | How often expired keys are purged after the purge at start-up |
+| `Idempotency:PendingTimeoutSeconds`  | `60`                                                 | After this, a key reserved by a request that never finished can be taken over by the same request |
 | `Logging:Console:IncludeScopes`      | `true`                                               | Print the `CorrelationId` scope on every log line |
 | `Jwt:SigningKey`                     | development-only value in `appsettings.Development.json`; **required elsewhere** (`Jwt__SigningKey` environment variable, user secrets…) | HS256 secret, at least 32 characters. Start-up fails if it is missing or too short, and the committed development key (marked `DEVELOPMENT-ONLY`) is rejected outside `Development` |
 | `Jwt:Issuer` / `Jwt:Audience`        | `BankingApp` / `BankingApp.API`                      | `iss` / `aud` claims; tokens with other values are rejected |
@@ -432,9 +514,9 @@ dotnet ef migrations add <Name> --project Banking.Infrastructure --startup-proje
 | Layer          | What is covered                                                                                          |
 | -------------- | -------------------------------------------------------------------------------------------------------- |
 | Domain         | Opening deposit rules, amount validation, insufficient funds, interest rounding, version bumps, password policy and hashing |
-| Application    | Services with mocked repositories: mapping, not-found, **ownership checks (403)**, login (wrong password, unknown document), retry of account-number generation, summaries |
-| Infrastructure | Real SQLite: atomic save of balance + ledger, unique document/account numbers, **concurrency conflict**, migrations in sync with the model, PBKDF2 hasher, seeded customers can log in |
-| API            | In-process HTTP tests: login, **401 without a token, 403 with another customer's token, 200 with the owner's**, status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw**, the same error in English and Spanish, `.resx` keys in sync, Swagger bearer scheme, start-up fails without a signing key |
+| Application    | Services with mocked repositories: mapping, not-found, **ownership checks (403)**, account listing, login (wrong password, unknown document), retry of account-number generation, summaries |
+| Infrastructure | Real SQLite: atomic save of balance + ledger, unique document/account numbers, **concurrency conflict**, accounts per customer oldest first, migrations in sync with the model, PBKDF2 hasher, seeded customers can log in, database health check (healthy / unreachable file), idempotency store (reserve, replay, release, per-customer keys, purge by age) and cleanup service |
+| API            | In-process HTTP tests: login, **401 without a token, 403 with another customer's token, 200 with the owner's**, status codes, `Location` headers, problem details, validation, **parallel withdrawals never overdraw**, **`Idempotency-Key` replays the first response and moves the balance once, rejects a different body (422), keeps customers apart, releases a failed key, two simultaneous requests apply once**, health endpoints as JSON, the same error in English and Spanish, `.resx` keys in sync, Swagger bearer scheme and `Idempotency-Key` header, start-up fails without a signing key |
 
 ```bash
 dotnet test

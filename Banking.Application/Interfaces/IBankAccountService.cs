@@ -16,6 +16,11 @@ public interface IBankAccountService
     /// <exception cref="NotFoundException">The account does not exist.</exception>
     Task<BankAccountResponseDto> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);
 
+    /// <summary>Lists the accounts of a customer, oldest first. Only the caller's own accounts are accessible.</summary>
+    /// <exception cref="NotFoundException">The customer does not exist.</exception>
+    /// <exception cref="ForbiddenException">The customer is someone else.</exception>
+    Task<IReadOnlyList<BankAccountResponseDto>> GetByCustomerIdAsync(int customerId, CancellationToken cancellationToken = default);
+
     /// <summary>Gets the balance of an account.</summary>
     /// <exception cref="NotFoundException">The account does not exist.</exception>
     Task<AccountBalanceDto> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default);

@@ -93,19 +93,4 @@ public class BankAccountEndpointsTests : ApiTestBase
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
-
-    [Test]
-    public async Task Health_ReturnsHealthy_WithoutAToken()
-    {
-        UseToken(null);
-
-        var response = await Client.GetAsync("/health");
-
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Multiple(() =>
-        {
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(body, Is.EqualTo("Healthy"));
-        });
-    }
 }

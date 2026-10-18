@@ -61,4 +61,10 @@
   <data name="PasswordLength" xml:space="preserve">
     <value>The password must be between {2} and {1} characters long.</value>
   </data>
+  <data name="PageRange" xml:space="preserve">
+    <value>The page number must be at least {1}.</value>
+  </data>
+  <data name="PageSizeRange" xml:space="preserve">
+    <value>The page size must be between {1} and {2}.</value>
+  </data>
 </root>

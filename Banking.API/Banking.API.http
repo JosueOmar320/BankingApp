@@ -120,6 +120,10 @@ Authorization: Bearer {{token}}
 GET {{host}}/api/Transaction/1000000001/summary
 Authorization: Bearer {{token}}
 
+### Ledger summary, second page of two transactions
+GET {{host}}/api/Transaction/1000000001/summary?page=2&pageSize=2
+Authorization: Bearer {{token}}
+
 ### No token: 401 problem with WWW-Authenticate
 GET {{host}}/api/BankAccount/1000000001/balance
 

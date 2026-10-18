@@ -142,6 +142,46 @@ public class TransactionEndpointsTests : ApiTestBase
         });
     }
 
+    [Test]
+    public async Task Summary_ReturnsTheRequestedPageAndTotalsOverTheWholeLedger()
+    {
+        var account = await CreateAccountAsync(100m);
+        foreach (var amount in new[] { 1m, 2m, 3m, 4m })
+        {
+            await PostAsync<TransactionResponseDto>("/api/Transaction/Deposit", new TransactionRequestDto { AccountNumber = account.AccountNumber, Amount = amount });
+        }
+
+        var first = await Client.GetFromJsonAsync<AccountTransactionSummaryDto>($"/api/Transaction/{account.AccountNumber}/summary?page=1&pageSize=2", Json);
+        var last = await Client.GetFromJsonAsync<AccountTransactionSummaryDto>($"/api/Transaction/{account.AccountNumber}/summary?page=3&pageSize=2", Json);
+        var whole = await Client.GetFromJsonAsync<AccountTransactionSummaryDto>($"/api/Transaction/{account.AccountNumber}/summary", Json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first!.Transactions.Select(t => t.Amount), Is.EqualTo(new List<decimal> { 100m, 1m }));
+            Assert.That(first.Page, Is.EqualTo(new PageInfoDto(Number: 1, Size: 2, TotalItems: 5, TotalPages: 3)));
+            Assert.That(first.TotalDeposits, Is.EqualTo(110m), "totals cover the whole ledger, not just the page");
+            Assert.That(first.FinalBalance, Is.EqualTo(110m));
+            Assert.That(last!.Transactions.Select(t => t.Amount), Is.EqualTo(new List<decimal> { 4m }));
+            Assert.That(last.Page, Is.EqualTo(new PageInfoDto(3, 2, 5, 3)));
+            Assert.That(whole!.Transactions, Has.Count.EqualTo(5));
+            Assert.That(whole.Page, Is.EqualTo(new PageInfoDto(1, LedgerPageRequestDto.DefaultPageSize, 5, 1)));
+        });
+    }
+
+    [TestCase("page=0", "Page")]
+    [TestCase("pageSize=0", "PageSize")]
+    [TestCase("pageSize=201", "PageSize")]
+    public async Task Summary_WithPageOutOfRange_Returns400ValidationProblem(string query, string field)
+    {
+        var account = await CreateAccountAsync();
+
+        var response = await Client.GetAsync($"/api/Transaction/{account.AccountNumber}/summary?{query}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(Json);
+        Assert.That(problem!.Errors, Contains.Key(field));
+    }
+
     private async Task<T> PostAsync<T>(string url, object body)
     {
         var response = await Client.PostAsJsonAsync(url, body, Json);

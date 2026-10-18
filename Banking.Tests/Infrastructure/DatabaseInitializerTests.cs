@@ -35,20 +35,20 @@ public class DatabaseInitializerTests
     }
 
     [Test]
-    [Timeout(30_000)]
-    public async Task InitializeDatabase_RemovesStaleLockLeftByInterruptedRun_AndMigrates()
+    [CancelAfter(30_000)]
+    public async Task InitializeDatabase_RemovesStaleLockLeftByInterruptedRun_AndMigrates(CancellationToken cancellationToken)
     {
         var now = FixedTimeProvider.DefaultNow;
         InsertLockRow(takenAt: now - DatabaseInitializer.StaleMigrationLockAge - TimeSpan.FromSeconds(1));
         await using var services = BuildServices(now);
 
-        await services.InitializeDatabaseAsync(seedSampleData: false);
+        await services.InitializeDatabaseAsync(seedSampleData: false, cancellationToken);
 
         await using var scope = services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<BankingDbContext>();
         Assert.Multiple(async () =>
         {
-            Assert.That(await context.Database.GetPendingMigrationsAsync(), Is.Empty);
+            Assert.That(await context.Database.GetPendingMigrationsAsync(cancellationToken), Is.Empty);
             Assert.That(CountLockRows(), Is.Zero, "the stale lock must be gone once the migration finished");
         });
     }

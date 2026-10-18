@@ -1,6 +1,64 @@
-@Banking.API_HostAddress = http://localhost:5200
+@host = http://localhost:5200
 
-GET {{Banking.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Register a customer
+POST {{host}}/api/Customer
+Content-Type: application/json
+
+{
+  "firstName": "María",
+  "lastName": "López",
+  "birthDate": "1992-07-15",
+  "documentNumber": "001-150792-0003C",
+  "gender": "F",
+  "monthlyIncome": 2200
+}
+
+### Get a customer
+GET {{host}}/api/Customer/1
+
+### Open an account (customer must exist)
+POST {{host}}/api/BankAccount
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "initialDeposit": 100
+}
+
+### Seeded account: details and balance
+GET {{host}}/api/BankAccount/1000000001
 
 ###
+GET {{host}}/api/BankAccount/1000000001/balance
+
+### Deposit
+POST {{host}}/api/Transaction/Deposit
+Content-Type: application/json
+
+{
+  "accountNumber": "1000000001",
+  "amount": 50.25
+}
+
+### Withdrawal
+POST {{host}}/api/Transaction/Withdrawal
+Content-Type: application/json
+
+{
+  "accountNumber": "1000000001",
+  "amount": 20
+}
+
+### Apply interest
+POST {{host}}/api/Transaction/Apply-Interest
+Content-Type: application/json
+
+{
+  "accountNumber": "1000000001"
+}
+
+### Ledger summary
+GET {{host}}/api/Transaction/1000000001/summary
+
+### Health
+GET {{host}}/health

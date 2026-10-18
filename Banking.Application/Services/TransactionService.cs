@@ -1,195 +1,107 @@
-﻿using Banking.Application.Dtos;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Application.Interfaces;
+using Banking.Application.Mapping;
 using Banking.Domain.Entities;
 using Banking.Domain.Enums;
 using Banking.Domain.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-namespace Banking.Application.Services
+namespace Banking.Application.Services;
+
+/// <inheritdoc cref="ITransactionService"/>
+internal sealed class TransactionService : ITransactionService
 {
+    private readonly IBankAccountRepository _bankAccountRepository;
+    private readonly ITransactionRepository _transactionRepository;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILogger<TransactionService> _logger;
+
+    public TransactionService(
+        IBankAccountRepository bankAccountRepository,
+        ITransactionRepository transactionRepository,
+        TimeProvider timeProvider,
+        ILogger<TransactionService> logger)
+    {
+        _bankAccountRepository = bankAccountRepository;
+        _transactionRepository = transactionRepository;
+        _timeProvider = timeProvider;
+        _logger = logger;
+    }
+
+    public Task<TransactionResponseDto> DepositAsync(TransactionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return ApplyAsync(request.AccountNumber, account => account.Deposit(request.Amount, Now()), cancellationToken);
+    }
+
+    public Task<TransactionResponseDto> WithdrawAsync(TransactionRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return ApplyAsync(request.AccountNumber, account => account.Withdraw(request.Amount, Now()), cancellationToken);
+    }
+
+    public Task<TransactionResponseDto> ApplyInterestAsync(ApplyInterestRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return ApplyAsync(request.AccountNumber, account => account.ApplyInterest(Now()), cancellationToken);
+    }
+
+    public async Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default)
+    {
+        var account = await LoadAccountAsync(accountNumber, cancellationToken);
+        var transactions = await _transactionRepository.GetAllByAccountIdAsync(account.BankAccountId, cancellationToken);
+
+        decimal deposits = 0, withdrawals = 0, interest = 0;
+        foreach (var transaction in transactions)
+        {
+            switch (transaction.TransactionType)
+            {
+                case TransactionType.Deposit:
+                    deposits += transaction.Amount;
+                    break;
+                case TransactionType.Withdrawal:
+                    withdrawals += transaction.Amount;
+                    break;
+                case TransactionType.Interest:
+                    interest += transaction.Amount;
+                    break;
+                default:
+                    throw new InvalidOperationException($"Unknown transaction type '{transaction.TransactionType}'.");
+            }
+        }
+
+        return new AccountTransactionSummaryDto(
+            account.AccountNumber,
+            StartingBalance: account.Balance + withdrawals - deposits - interest,
+            TotalDeposits: deposits,
+            TotalWithdrawals: withdrawals,
+            TotalInterest: interest,
+            FinalBalance: account.Balance,
+            Transactions: transactions.Select(t => t.ToSummaryDto()).ToList());
+    }
 
     /// <summary>
-    /// Service responsible for handling all transactions related to bank accounts,
-    /// including deposits, withdrawals, interest application, and transaction summaries.
+    /// Loads the account, applies one ledger operation and saves balance + transaction in a single unit of work.
     /// </summary>
-    public class TransactionService : ITransactionService
+    private async Task<TransactionResponseDto> ApplyAsync(
+        string accountNumber,
+        Func<BankAccount, Transaction> operation,
+        CancellationToken cancellationToken)
     {
-        private readonly ITransactionRepository _transactionRepository;
-        private readonly IBankAccountService _bankAccountService;
+        var account = await LoadAccountAsync(accountNumber, cancellationToken);
+        var transaction = operation(account);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="TransactionService"/> class.
-        /// </summary>
-        /// <param name="transactionRepository">Repository for managing transactions.</param>
-        /// <param name="bankAccountService">Service for managing bank accounts.</param>
-        public TransactionService(ITransactionRepository transactionRepository, IBankAccountService bankAccountService)
-        {
-            _transactionRepository = transactionRepository;
-            _bankAccountService = bankAccountService;
-        }
+        await _bankAccountRepository.UpdateBankAccountAsync(account, cancellationToken);
 
-        /// <summary>
-        /// Deposits a specified amount into a bank account.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="amount">The amount to deposit. Must be greater than zero.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
-        public async Task<TransactionResponseDto?> DepositAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
-        {
-            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
-            if(account == null) 
-                return null;
+        Log.TransactionApplied(_logger, transaction.TransactionType, transaction.Amount, account.BankAccountId, account.Balance);
 
-            if (amount <= 0)
-                throw new ArgumentException("The amount must be greater than zero.", nameof(amount));
-
-            var transaction = new Transaction
-            {
-                BankAccountId = account.BankAccountId,
-                Amount = amount,
-                TransactionType = TransactionType.Deposit,
-                TransactionDate = DateTime.UtcNow,
-                BalanceAfter = account.Balance + amount,
-            };
-
-            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
-
-            account.Balance += amount;
-            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
-
-            return new TransactionResponseDto 
-                { 
-                    AccountNumber = accountNumber, 
-                    TransactionType = result.TransactionType, 
-                    Amount = result.Amount ,
-                    BalanceAfter = resultAccount.Balance,
-            };
-
-        }
-
-        /// <summary>
-        /// Withdraws a specified amount from a bank account.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="amount">The amount to withdraw. Must be greater than zero.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        /// <exception cref="ArgumentException">Thrown if amount is less than or equal to zero.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if account balance is insufficient.</exception>
-        public async Task<TransactionResponseDto?> WithdrawAsync(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
-        {
-            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
-            if (account == null)
-                return null;
-
-            if (amount <= 0)
-                throw new ArgumentException("The amount must be greater than zero.", nameof(amount));
-
-            if (account.Balance < amount)
-                throw new InvalidOperationException("Insufficient funds.");
-
-
-            var transaction = new Transaction
-            {
-                BankAccountId = account.BankAccountId,
-                Amount = amount,
-                TransactionType = TransactionType.Withdrawal,
-                TransactionDate = DateTime.UtcNow,
-                BalanceAfter = account.Balance - amount,
-            };
-
-            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
-
-            account.Balance -= result.Amount;
-            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
-
-            return new TransactionResponseDto
-            {
-                AccountNumber = accountNumber,
-                TransactionType = result.TransactionType,
-                Amount = result.Amount,
-                BalanceAfter = resultAccount.Balance,
-            };
-        }
-
-        /// <summary>
-        /// Applies interest to a bank account based on its current balance and fixed interest rate.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The transaction details including updated balance, or null if the account does not exist.</returns>
-        public async Task<TransactionResponseDto?> ApplyInterestAsync(string accountNumber, CancellationToken cancellationToken = default)
-        {
-            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
-            if (account == null)
-                return null;
-            
-            var transaction = new Transaction
-            {
-                BankAccountId = account.BankAccountId,
-                Amount = account.Balance * account.InterestRate,
-                TransactionType = TransactionType.Interest,
-                TransactionDate = DateTime.UtcNow,
-                BalanceAfter = account.Balance + (account.Balance * account.InterestRate) ,
-            };
-
-            var result = await _transactionRepository.AddTransactionAsync(transaction, cancellationToken);
-
-            account.Balance += result.Amount;
-            var resultAccount = await _bankAccountService.UpdateBankAccountAsync(account, cancellationToken);
-
-            return new TransactionResponseDto
-            {
-                AccountNumber = accountNumber,
-                TransactionType = result.TransactionType,
-                Amount = result.Amount,
-                BalanceAfter = resultAccount.Balance,
-            };
-        }
-
-        /// <summary>
-        /// Retrieves a summary of all transactions for a given account, including deposits, withdrawals, interests, starting and final balances.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>An account transaction summary, or null if the account does not exist.</returns>
-        public async Task<AccountTransactionSummaryDto?> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default)
-        {
-            var account = await _bankAccountService.GetByAccountNumberAsync(accountNumber);
-            if (account == null)
-                return null;
-
-            var transactions = await _transactionRepository.GetAllByAccountIdAsync(account.BankAccountId, cancellationToken);
-
-            var transactionSummary = transactions.Select(t => new TransactionSummaryDto
-            {
-                TransactionType = t.TransactionType,
-                Amount = t.Amount,
-                BalanceAfter = t.BalanceAfter,
-                TransactionDate = t.TransactionDate,
-            }).ToList();
-
-            var totalDepositsAndInterest = transactionSummary
-                .Where(t => t.TransactionType == TransactionType.Deposit || t.TransactionType == TransactionType.Interest)
-                .Sum(t => t.Amount);
-
-            var totalWithdrawals = transactionSummary
-                .Where(t => t.TransactionType == TransactionType.Withdrawal)
-                .Sum(t => t.Amount);
-
-            return new AccountTransactionSummaryDto
-            {
-                AccountNumber = accountNumber,
-                StartingBalance = account.Balance + totalWithdrawals - totalDepositsAndInterest,
-                Transactions = transactionSummary,
-                FinalBalance = account.Balance,
-            };
-        }
+        return transaction.ToDto(account.AccountNumber);
     }
+
+    private async Task<BankAccount> LoadAccountAsync(string accountNumber, CancellationToken cancellationToken)
+        => await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
+            ?? throw new NotFoundException("Account", accountNumber);
+
+    private DateTime Now() => _timeProvider.GetUtcNow().UtcDateTime;
 }

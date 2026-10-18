@@ -1,103 +1,85 @@
-﻿using Banking.Application.Dtos;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Application.Interfaces;
+using Banking.Application.Mapping;
 using Banking.Domain.Entities;
 using Banking.Domain.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Banking.Domain.Rules;
+using Microsoft.Extensions.Logging;
 
-namespace Banking.Application.Services
+namespace Banking.Application.Services;
+
+/// <inheritdoc cref="IBankAccountService"/>
+internal sealed class BankAccountService : IBankAccountService
 {
-    /// <summary>
-    /// Service responsible for managing bank accounts, including creation, updates, and balance queries.
-    /// </summary>
-    public class BankAccountService : Interfaces.IBankAccountService
+    private const int MaxAccountNumberAttempts = 10;
+
+    private readonly IBankAccountRepository _bankAccountRepository;
+    private readonly ICustomerRepository _customerRepository;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILogger<BankAccountService> _logger;
+
+    public BankAccountService(
+        IBankAccountRepository bankAccountRepository,
+        ICustomerRepository customerRepository,
+        TimeProvider timeProvider,
+        ILogger<BankAccountService> logger)
     {
-        private readonly IBankAccountRepository _bankAccountRepository;
-        private readonly ICustomerService _customerService;
+        _bankAccountRepository = bankAccountRepository;
+        _customerRepository = customerRepository;
+        _timeProvider = timeProvider;
+        _logger = logger;
+    }
 
-        /// <summary>
-        /// Fixed interest rate applied to all bank accounts (10%).
-        /// </summary>
-        private const decimal InterestRate = 0.10m;
+    public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bankAccountDto);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="BankAccountService"/> class.
-        /// </summary>
-        /// <param name="bankAccountRepository">Repository for managing bank accounts.</param>
-        /// <param name="customerService">Service for managing Customers.</param>
-        public BankAccountService(IBankAccountRepository bankAccountRepository, ICustomerService customerService)
+        if (await _customerRepository.GetCustomerByIdAsync(bankAccountDto.CustomerId, cancellationToken) is null)
         {
-            _bankAccountRepository = bankAccountRepository;
-            _customerService = customerService;
+            throw new NotFoundException("Customer", bankAccountDto.CustomerId);
         }
 
-        /// <summary>
-        /// Creates a new bank account for a customer.
-        /// </summary>
-        /// <param name="bankAccountDto">DTO containing the bank account information.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The created bank account details including account number.</returns>
-        public async Task<BankAccountResponseDto> CreateBankAccountAsync(CreateBankAccountDto bankAccountDto, CancellationToken cancellationToken = default)
+        var accountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken);
+        var account = BankAccount.Open(accountNumber, bankAccountDto.CustomerId, bankAccountDto.InitialDeposit, _timeProvider.GetUtcNow().UtcDateTime);
+
+        var saved = await _bankAccountRepository.AddBankAccountAsync(account, cancellationToken);
+
+        Log.AccountOpened(_logger, saved.BankAccountId, saved.CustomerId);
+        return saved.ToDto();
+    }
+
+    public async Task<BankAccountResponseDto> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
+    {
+        var account = await _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken)
+            ?? throw new NotFoundException("Account", accountNumber);
+
+        return account.ToDto();
+    }
+
+    public async Task<AccountBalanceDto> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
+    {
+        var balance = await _bankAccountRepository.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken)
+            ?? throw new NotFoundException("Account", accountNumber);
+
+        return new AccountBalanceDto(accountNumber, balance);
+    }
+
+    private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken)
+    {
+        // 10-digit numbers: [1_000_000_000, 9_999_999_999]
+        var min = (long)Math.Pow(10, AccountRules.AccountNumberLength - 1);
+        var max = (long)Math.Pow(10, AccountRules.AccountNumberLength);
+
+        for (var attempt = 0; attempt < MaxAccountNumberAttempts; attempt++)
         {
-            var customer = await _customerService.GetCustomerByIdAsync(bankAccountDto.CustomerId, cancellationToken);
-
-            if(customer == null)
-                throw new InvalidOperationException($"Not found customer for id: {bankAccountDto.CustomerId}");
-
-            var account = new BankAccount
+            var candidate = Random.Shared.NextInt64(min, max).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!await _bankAccountRepository.ExistsByNumberAsync(candidate, cancellationToken))
             {
-                CustomerId = bankAccountDto.CustomerId,
-                Balance = bankAccountDto.InitialDeposit,
-                CreatedAt = DateTime.UtcNow,
-                InterestRate = InterestRate,
-                AccountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken)
-            };
-
-            var result = await _bankAccountRepository.AddBankAccountAsync(account, cancellationToken);
-
-            return new BankAccountResponseDto{ AccountNumber = result.AccountNumber };
-        }
-
-        /// <summary>
-        /// Updates an existing bank account.
-        /// </summary>
-        /// <param name="bankAccount">The bank account to update.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The updated bank account.</returns>
-        public Task<BankAccount> UpdateBankAccountAsync(BankAccount bankAccount, CancellationToken cancellationToken = default)
-            => _bankAccountRepository.UpdateBankAccountAsync(bankAccount, cancellationToken);
-
-        /// <summary>
-        /// Retrieves the balance for a bank account by its account number.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The balance of the account, or null if the account does not exist.</returns>
-        public Task<decimal?> GetBalanceByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
-            => _bankAccountRepository.GetBalanceByAccountNumberAsync(accountNumber, cancellationToken);
-
-        /// <summary>
-        /// Retrieves a bank account by its account number.
-        /// </summary>
-        /// <param name="accountNumber">The account number of the bank account.</param>
-        /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-        /// <returns>The bank account, or null if not found.</returns>
-        public Task<BankAccount?> GetByAccountNumberAsync(string accountNumber, CancellationToken cancellationToken = default)
-            => _bankAccountRepository.GetByAccountNumberAsync(accountNumber, cancellationToken);
-
-        private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken = default)
-        {
-            string accountNumber;
-            do
-            {
-                accountNumber = new Random().Next(1000000000, int.MaxValue).ToString(); 
+                return candidate;
             }
-            while (await _bankAccountRepository.ExistsByNumberAsync(accountNumber, cancellationToken));
-
-            return accountNumber;
         }
+
+        throw new InvalidOperationException($"Could not generate a unique account number after {MaxAccountNumberAttempts} attempts.");
     }
 }

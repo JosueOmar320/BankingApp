@@ -1,104 +1,124 @@
-﻿using Banking.Application.Dtos;
-using Banking.Application.Interfaces;
+using Banking.Application.Dtos;
+using Banking.Application.Exceptions;
 using Banking.Application.Services;
 using Banking.Domain.Entities;
+using Banking.Domain.Exceptions;
 using Banking.Domain.Interfaces;
+using Banking.Domain.Rules;
+using Banking.Tests.Support;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Banking.Tests.Application.Services
+namespace Banking.Tests.Application.Services;
+
+public class BankAccountServiceTests
 {
-    public class BankAccountServiceTests
+    private Mock<IBankAccountRepository> _accounts = null!;
+    private Mock<ICustomerRepository> _customers = null!;
+    private BankAccountService _service = null!;
+
+    [SetUp]
+    public void SetUp()
     {
-        private Mock<IBankAccountRepository> _bankAccountRepositoryMock;
-        private Mock<ICustomerService> _customerServiceMock;
-        private BankAccountService _bankAccountService;
+        _accounts = new Mock<IBankAccountRepository>(MockBehavior.Strict);
+        _customers = new Mock<ICustomerRepository>(MockBehavior.Strict);
+        _service = new BankAccountService(_accounts.Object, _customers.Object, new FixedTimeProvider(), NullLogger<BankAccountService>.Instance);
+    }
 
-        [SetUp]
-        public void Setup()
+    [Test]
+    public async Task CreateBankAccountAsync_OpensAccountWithGeneratedNumberAndOpeningDeposit()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
+        _accounts.Setup(a => a.ExistsByNumberAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        BankAccount? captured = null;
+        _accounts
+            .Setup(a => a.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()))
+            .Callback<BankAccount, CancellationToken>((acc, _) => captured = acc)
+            .ReturnsAsync((BankAccount acc, CancellationToken _) => acc);
+
+        var result = await _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 1, InitialDeposit = 250m });
+
+        Assert.That(captured, Is.Not.Null);
+        Assert.Multiple(() =>
         {
-            _bankAccountRepositoryMock = new Mock<IBankAccountRepository>();
-            _customerServiceMock = new Mock<ICustomerService>();
-            _bankAccountService = new BankAccountService(_bankAccountRepositoryMock.Object, _customerServiceMock.Object);
-        }
+            Assert.That(result.AccountNumber, Has.Length.EqualTo(AccountRules.AccountNumberLength).And.Match("^[1-9][0-9]+$"));
+            Assert.That(result.Balance, Is.EqualTo(250m));
+            Assert.That(result.InterestRate, Is.EqualTo(AccountRules.InterestRate));
+            Assert.That(result.CreatedAt, Is.EqualTo(TestData.Now));
+            Assert.That(captured!.Transactions, Has.Count.EqualTo(1), "the opening deposit is part of the ledger");
+        });
+    }
 
-        [Test]
-        public async Task CreateBankAccountAsync_ShouldReturnResponseDto_WhenAccountCreated()
+    [Test]
+    public async Task CreateBankAccountAsync_RetriesWhenGeneratedNumberIsTaken()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
+        _accounts
+            .SetupSequence(a => a.ExistsByNumberAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+        _accounts
+            .Setup(a => a.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((BankAccount acc, CancellationToken _) => acc);
+
+        await _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 1, InitialDeposit = 50m });
+
+        _accounts.Verify(a => a.ExistsByNumberAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Test]
+    public void CreateBankAccountAsync_ThrowsNotFoundWhenCustomerMissing()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((Customer?)null);
+
+        Assert.ThrowsAsync<NotFoundException>(() => _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 99, InitialDeposit = 100m }));
+        _accounts.Verify(a => a.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public void CreateBankAccountAsync_RejectsDepositBelowMinimumBeforeSaving()
+    {
+        _customers.Setup(c => c.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Customer());
+        _accounts.Setup(a => a.ExistsByNumberAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        Assert.ThrowsAsync<DomainException>(() => _service.CreateBankAccountAsync(new CreateBankAccountDto { CustomerId = 1, InitialDeposit = 9.99m }));
+        _accounts.Verify(a => a.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task GetBalanceByAccountNumberAsync_ReturnsBalanceDto()
+    {
+        _accounts.Setup(a => a.GetBalanceByAccountNumberAsync("123", It.IsAny<CancellationToken>())).ReturnsAsync(500m);
+
+        var result = await _service.GetBalanceByAccountNumberAsync("123");
+
+        Assert.Multiple(() =>
         {
-            // Arrange
-            var dto = new CreateBankAccountDto { CustomerId = 1, InitialDeposit = 1000 };
-            var fakeAccount = new BankAccount { BankAccountId = 1, AccountNumber = "1234567890", Balance = 1000, CustomerId = 1 };
-
-            _customerServiceMock
-                .Setup(s => s.GetCustomerByIdAsync(1, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new Customer { CustomerId = 1, FirstName = "John", DocumentNumber = "001" });
-
-            _bankAccountRepositoryMock
-                .Setup(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(fakeAccount);
-
-            _bankAccountRepositoryMock
-                .Setup(r => r.ExistsByNumberAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(false);
-
-            // Act
-            var result = await _bankAccountService.CreateBankAccountAsync(dto);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.That(result.AccountNumber, Is.EqualTo(fakeAccount.AccountNumber));
-            _bankAccountRepositoryMock.Verify(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Test]
-        public void CreateBankAccountAsync_ShouldThrow_WhenCustomerNotFound()
-        {
-            // Arrange
-            var dto = new CreateBankAccountDto { CustomerId = 99, InitialDeposit = 1000 };
-
-            _customerServiceMock
-                .Setup(s => s.GetCustomerByIdAsync(99, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Customer?)null);
-
-            // Act & Assert
-            Assert.ThrowsAsync<InvalidOperationException>(() => _bankAccountService.CreateBankAccountAsync(dto));
-            _bankAccountRepositoryMock.Verify(r => r.AddBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
-        }
-
-        [Test]
-        public async Task GetBalanceByAccountNumberAsync_ShouldReturnBalance()
-        {
-            // Arrange
-            _bankAccountRepositoryMock
-                .Setup(r => r.GetBalanceByAccountNumberAsync("123", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(500);
-
-            // Act
-            var balance = await _bankAccountService.GetBalanceByAccountNumberAsync("123");
-
-            // Assert
-            Assert.That(balance, Is.EqualTo(500));
-        }
-
-        [Test]
-        public async Task GetByAccountNumberAsync_ShouldReturnAccount_WhenExists()
-        {
-            // Arrange
-            var account = new BankAccount { AccountNumber = "123", Balance = 200 };
-            _bankAccountRepositoryMock
-                .Setup(r => r.GetByAccountNumberAsync("123", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(account);
-
-            // Act
-            var result = await _bankAccountService.GetByAccountNumberAsync("123");
-
-            // Assert
-            Assert.NotNull(result);
             Assert.That(result.AccountNumber, Is.EqualTo("123"));
-        }
+            Assert.That(result.Balance, Is.EqualTo(500m));
+        });
+    }
+
+    [Test]
+    public void GetBalanceByAccountNumberAsync_ThrowsNotFound()
+    {
+        _accounts.Setup(a => a.GetBalanceByAccountNumberAsync("999", It.IsAny<CancellationToken>())).ReturnsAsync((decimal?)null);
+
+        Assert.ThrowsAsync<NotFoundException>(() => _service.GetBalanceByAccountNumberAsync("999"));
+    }
+
+    [Test]
+    public async Task GetByAccountNumberAsync_ReturnsAccountDto()
+    {
+        _accounts.Setup(a => a.GetByAccountNumberAsync("1234567890", It.IsAny<CancellationToken>())).ReturnsAsync(TestData.Account());
+
+        var result = await _service.GetByAccountNumberAsync("1234567890");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.AccountNumber, Is.EqualTo("1234567890"));
+            Assert.That(result.Balance, Is.EqualTo(100m));
+        });
     }
 }

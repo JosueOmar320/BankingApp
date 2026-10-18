@@ -1,144 +1,76 @@
-﻿using Banking.Application.Dtos;
+using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Banking.API.Controllers
+namespace Banking.API.Controllers;
+
+/// <summary>Ledger operations: deposits, withdrawals, interest and account summaries.</summary>
+[ApiController]
+[Route("api/[controller]")]
+[Produces("application/json")]
+public class TransactionController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class TransactionController : ControllerBase
+    private readonly ITransactionService _transactionService;
+
+    /// <summary>Creates the controller.</summary>
+    public TransactionController(ITransactionService transactionService)
     {
-        private readonly ITransactionService _transactionService;
-        public TransactionController(ITransactionService transactionService)
-        {
-            _transactionService = transactionService;
-        }
-
-        /// <summary>
-        /// Deposit Amount in BankAccount.
-        /// </summary>
-        /// <param name="accountNumber">Customer's Account Number</param>
-        /// <param name="amount">Amount to deposit</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>The updated bank account information.</returns>
-        [HttpPost("Deposit")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
-        public async Task<IActionResult> Deposit(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    return StatusCode(StatusCodes.Status499ClientClosedRequest);
-
-                if (amount <= 0 || amount == 0)
-                    return BadRequest(new ErrorResponseDto { Message = "Amount must be greater than zero." });
-
-                var result = await _transactionService.DepositAsync(accountNumber, amount, cancellationToken);
-
-                if (result == null)
-                    return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
-
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex) 
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-
-        }
-
-        /// <summary>
-        /// Withdraw Amount in BankAccount.
-        /// </summary>
-        /// <param name="accountNumber">The unique account number of the bank account.</param>
-        /// <param name="amount">Amount to Withdraw</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>The updated bank account information.</returns>
-        [HttpPost("Withdrawal")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
-        public async Task<IActionResult> Withdrawal(string accountNumber, decimal amount, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    return StatusCode(StatusCodes.Status499ClientClosedRequest);
-
-                if (amount <= 0 || amount == 0)
-                    return BadRequest(new ErrorResponseDto { Message = "Amount must be greater than zero." });
-
-                var result = await _transactionService.WithdrawAsync(accountNumber, amount, cancellationToken);
-
-                if (result == null)
-                    return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
-
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Apply Interest in BankAccount.
-        /// </summary>
-        /// <param name="accountNumber">The unique account number of the bank account.</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>The updated bank account information.</returns>
-        [HttpPost("Apply-Interest")]
-        [ProducesResponseType(typeof(BankAccountResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
-        public async Task<IActionResult> ApplyInterest(string accountNumber, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return StatusCode(StatusCodes.Status499ClientClosedRequest);
-
-            var result = await _transactionService.ApplyInterestAsync(accountNumber, cancellationToken);
-
-            if (result == null)
-                return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
-
-            return Ok(result);
-        }
-
-        /// <summary>
-        /// Get the transaction summary of a bank account, including all deposits, withdrawals,
-        /// interests applied, and the final balance.
-        /// </summary>
-        /// <param name="accountNumber">The unique account number of the bank account.</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>A summary of the transactions for the specified account, or 404 if the account does not exist.</returns>
-        [HttpGet("{accountNumber}/summary")]
-        [ProducesResponseType(typeof(AccountTransactionSummaryDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponseDto), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status499ClientClosedRequest)]
-        public async Task<IActionResult> GetAccountTransactionSummary(string accountNumber, CancellationToken cancellationToken = default)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return StatusCode(StatusCodes.Status499ClientClosedRequest);
-
-            var result = await _transactionService.GetAccountTransactionSummaryAsync(accountNumber, cancellationToken);
-
-            if (result == null)
-                return NotFound(new ErrorResponseDto { Message = $"Account {accountNumber} not found." });
-
-            return Ok(result);
-        }
+        _transactionService = transactionService;
     }
+
+    /// <summary>Deposits money into an account.</summary>
+    /// <param name="request">Account number and amount.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The recorded transaction and the new balance.</response>
+    /// <response code="400">The payload is invalid or the amount violates a business rule.</response>
+    /// <response code="404">The account does not exist.</response>
+    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    [HttpPost("Deposit")]
+    [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TransactionResponseDto>> Deposit(TransactionRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _transactionService.DepositAsync(request, cancellationToken));
+
+    /// <summary>Withdraws money from an account.</summary>
+    /// <param name="request">Account number and amount.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The recorded transaction and the new balance.</response>
+    /// <response code="400">The payload is invalid, the amount violates a business rule or funds are insufficient.</response>
+    /// <response code="404">The account does not exist.</response>
+    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    [HttpPost("Withdrawal")]
+    [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TransactionResponseDto>> Withdrawal(TransactionRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _transactionService.WithdrawAsync(request, cancellationToken));
+
+    /// <summary>Credits the fixed interest rate (10%) on the current balance.</summary>
+    /// <param name="request">Account number.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The recorded interest transaction and the new balance.</response>
+    /// <response code="400">The resulting interest is zero.</response>
+    /// <response code="404">The account does not exist.</response>
+    /// <response code="409">The account was modified concurrently; retry the request.</response>
+    [HttpPost("Apply-Interest")]
+    [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TransactionResponseDto>> ApplyInterest(ApplyInterestRequestDto request, CancellationToken cancellationToken)
+        => Ok(await _transactionService.ApplyInterestAsync(request, cancellationToken));
+
+    /// <summary>Returns the ledger of an account with totals and the current balance.</summary>
+    /// <param name="accountNumber">Account number.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <response code="200">The account summary.</response>
+    /// <response code="404">The account does not exist.</response>
+    [HttpGet("{accountNumber}/summary")]
+    [ProducesResponseType(typeof(AccountTransactionSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountTransactionSummaryDto>> GetAccountTransactionSummary(string accountNumber, CancellationToken cancellationToken)
+        => Ok(await _transactionService.GetAccountTransactionSummaryAsync(accountNumber, cancellationToken));
 }

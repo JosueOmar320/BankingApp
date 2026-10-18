@@ -1,23 +1,68 @@
-﻿using Banking.Domain.Interfaces;
+using Banking.Domain.Interfaces;
+using Banking.Infrastructure.Persistence;
 using Banking.Infrastructure.Repositories;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 
-namespace Banking.Infrastructure
+namespace Banking.Infrastructure;
+
+/// <summary>Registers the SQLite <see cref="BankingDbContext"/> and the repositories.</summary>
+public static class DependencyInjection
 {
-    public static class DependencyInjection
-    {
-        public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
-        {
-            services.AddScoped<ICustomerRepository, CustomerRepository>();
-            services.AddScoped<IBankAccountRepository, BankAccountRepository>();
-            services.AddScoped<ITransactionRepository, TransactionRepository>();
+    public const string ConnectionStringName = "DefaultConnection";
 
-            return services;
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var connectionString = configuration.GetConnectionString(ConnectionStringName);
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{ConnectionStringName}' is missing. Add it under 'ConnectionStrings' in appsettings.json.");
         }
+
+        services.AddDbContext<BankingDbContext>((provider, options) =>
+        {
+            var environment = provider.GetRequiredService<IHostEnvironment>();
+            options.UseSqlite(ResolveDataSource(connectionString, environment.ContentRootPath));
+        });
+
+        return services.AddRepositories();
+    }
+
+    /// <summary>Registers only the repositories; the caller configures <see cref="BankingDbContext"/> itself (tests).</summary>
+    public static IServiceCollection AddRepositories(this IServiceCollection services)
+    {
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+        services.AddScoped<ITransactionRepository, TransactionRepository>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Makes a relative SQLite file path relative to the content root instead of the process
+    /// working directory, so the same database is used whether the API is started from the IDE,
+    /// from <c>dotnet run</c> or from a published folder.
+    /// </summary>
+    internal static string ResolveDataSource(string connectionString, string contentRootPath)
+    {
+        var builder = new SqliteConnectionStringBuilder(connectionString);
+        var dataSource = builder.DataSource;
+
+        if (string.IsNullOrWhiteSpace(dataSource)
+            || dataSource.StartsWith(':')
+            || dataSource.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+            || Path.IsPathRooted(dataSource))
+        {
+            return connectionString;
+        }
+
+        builder.DataSource = Path.GetFullPath(Path.Combine(contentRootPath, dataSource.Replace('\\', '/')));
+        return builder.ToString();
     }
 }

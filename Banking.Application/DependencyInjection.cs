@@ -1,23 +1,22 @@
-﻿using Banking.Application.Interfaces;
+using Banking.Application.Interfaces;
 using Banking.Application.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Banking.Application
+namespace Banking.Application;
+
+/// <summary>Registers the application services.</summary>
+public static class DependencyInjection
 {
-    public static class DependencyInjection
+    /// <summary>Adds the application services and a default <see cref="TimeProvider"/>.</summary>
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        public static IServiceCollection AddApplicationServices(this IServiceCollection services)
-        {
-            services.AddScoped<ICustomerService, CustomerService>();
-            services.AddScoped<IBankAccountService, BankAccountService>();
-            services.AddScoped<ITransactionService, TransactionService>();
+        services.TryAddSingleton(TimeProvider.System);
 
-            return services;
-        }
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IBankAccountService, BankAccountService>();
+        services.AddScoped<ITransactionService, TransactionService>();
+
+        return services;
     }
 }

@@ -1,19 +1,10 @@
-﻿using Banking.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Banking.Domain.Entities;
 
-namespace Banking.Domain.Interfaces
+namespace Banking.Domain.Interfaces;
+
+/// <summary>Read-side access to the ledger. Writes always go through <see cref="BankAccount"/>.</summary>
+public interface ITransactionRepository
 {
-    /// <summary>
-    /// Repository interface for managing transactions in the persistence layer.
-    /// </summary>
-    public interface ITransactionRepository
-    {
-        Task<Transaction> AddTransactionAsync(Transaction transaction, CancellationToken cancellationToken = default);
-
-        Task<IEnumerable<Transaction>> GetAllByAccountIdAsync(int bankAccountId, CancellationToken cancellationToken = default);
-    }
+    /// <summary>All transactions of an account, oldest first.</summary>
+    Task<IReadOnlyList<Transaction>> GetAllByAccountIdAsync(int bankAccountId, CancellationToken cancellationToken = default);
 }

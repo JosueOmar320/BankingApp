@@ -110,11 +110,28 @@ Key design decisions:
 | `POST` | `/api/Transaction/Deposit`                 | owner    | `{ accountNumber, amount }`            | Deposit                                       |
 | `POST` | `/api/Transaction/Withdrawal`              | owner    | `{ accountNumber, amount }`            | Withdraw                                      |
 | `POST` | `/api/Transaction/Apply-Interest`          | owner    | `{ accountNumber }`                    | Credit 10% interest on the balance            |
-| `GET`  | `/api/Transaction/{accountNumber}/summary` | owner    |                                        | Ledger with totals and final balance          |
+| `GET`  | `/api/Transaction/{accountNumber}/summary` | owner    | `?page=1&pageSize=50`                  | Ledger totals, final balance and one page of transactions |
 | `GET`  | `/health`                                  | public   |                                        | Liveness check                                |
 
 *own* / *owner*: a bearer token is required, and the customer or account must belong to the authenticated customer
 (`401` without a valid token, `403` for someone else's data).
+
+The summary is paginated: the totals (`totalDeposits`, `totalWithdrawals`, `totalInterest`, `finalBalance`) always cover
+the whole ledger, while `transactions` holds one page (oldest first) and `page` says where it sits:
+
+```json
+{
+  "accountNumber": "1000000001",
+  "totalDeposits": 750.00,
+  "totalWithdrawals": 100.00,
+  "totalInterest": 65.00,
+  "finalBalance": 715.00,
+  "transactions": [ { "transactionId": 3, "transactionType": "Withdrawal", "amount": 100.00, "balanceAfter": 650.00, "transactionDate": "…" } ],
+  "page": { "number": 2, "size": 2, "totalItems": 4, "totalPages": 2 }
+}
+```
+
+`page` defaults to 1 and `pageSize` to 50 (maximum 200); values out of range return a `400` validation problem.
 
 Enums travel as strings (`"gender": "F"`, `"transactionType": "Deposit"`). Full schemas are in Swagger, and
 [`Banking.API/Banking.API.http`](Banking.API/Banking.API.http) contains ready-to-run requests.

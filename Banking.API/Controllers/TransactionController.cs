@@ -65,14 +65,22 @@ public class TransactionController : ControllerBase
     public async Task<ActionResult<TransactionResponseDto>> ApplyInterest(ApplyInterestRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.ApplyInterestAsync(request, cancellationToken));
 
-    /// <summary>Returns the ledger of an account with totals and the current balance.</summary>
+    /// <summary>Returns the totals of an account's ledger, the current balance and one page of transactions.</summary>
+    /// <remarks>
+    /// Totals cover the whole ledger; <c>transactions</c> holds only the requested page (oldest first) and
+    /// <c>page</c> says how many pages there are. The default page size is 50 and the maximum 200.
+    /// </remarks>
     /// <param name="accountNumber">Account number.</param>
+    /// <param name="paging">Page number and size (<c>page</c> and <c>pageSize</c> query parameters).</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <response code="200">The account summary.</response>
+    /// <response code="400">The page number or size is out of range.</response>
     /// <response code="404">The account does not exist.</response>
+    // The parameter is not called "page": a query key with the parameter's name makes the binder look for "page.Page".
     [HttpGet("{accountNumber}/summary")]
     [ProducesResponseType(typeof(AccountTransactionSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AccountTransactionSummaryDto>> GetAccountTransactionSummary(string accountNumber, CancellationToken cancellationToken)
-        => Ok(await _transactionService.GetAccountTransactionSummaryAsync(accountNumber, cancellationToken));
+    public async Task<ActionResult<AccountTransactionSummaryDto>> GetAccountTransactionSummary(string accountNumber, [FromQuery] LedgerPageRequestDto paging, CancellationToken cancellationToken)
+        => Ok(await _transactionService.GetAccountTransactionSummaryAsync(accountNumber, paging, cancellationToken));
 }

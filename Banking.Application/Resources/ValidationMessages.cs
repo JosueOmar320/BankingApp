@@ -49,6 +49,10 @@ internal static class ValidationMessages
 
     public static string PasswordLength => Get();
 
+    public static string PageRange => Get();
+
+    public static string PageSizeRange => Get();
+
     /// <summary>Reads the resource for the given culture, or the invariant text when the culture has none.</summary>
     public static string? GetString(string key, CultureInfo culture) => Resources.GetString(key, culture);
 

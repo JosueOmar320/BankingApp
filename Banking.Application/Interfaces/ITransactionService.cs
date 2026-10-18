@@ -26,7 +26,7 @@ public interface ITransactionService
     /// <exception cref="ConcurrencyConflictException">The account changed concurrently; retry.</exception>
     Task<TransactionResponseDto> ApplyInterestAsync(ApplyInterestRequestDto request, CancellationToken cancellationToken = default);
 
-    /// <summary>Returns the full ledger of an account with totals.</summary>
+    /// <summary>Returns the totals of an account's ledger and one page of its transactions.</summary>
     /// <exception cref="NotFoundException">The account does not exist.</exception>
-    Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default);
+    Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, LedgerPageRequestDto page, CancellationToken cancellationToken = default);
 }

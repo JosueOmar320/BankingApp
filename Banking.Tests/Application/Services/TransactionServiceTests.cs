@@ -5,6 +5,7 @@ using Banking.Domain.Entities;
 using Banking.Domain.Enums;
 using Banking.Domain.Exceptions;
 using Banking.Domain.Interfaces;
+using Banking.Domain.ValueObjects;
 using Banking.Tests.Support;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -38,7 +39,7 @@ public class TransactionServiceTests
             Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.DepositAsync(request))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
             Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.WithdrawAsync(request))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
             Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.ApplyInterestAsync(new ApplyInterestRequestDto { AccountNumber = account.AccountNumber }))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
-            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.GetAccountTransactionSummaryAsync(account.AccountNumber))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
+            Assert.That(Assert.ThrowsAsync<ForbiddenException>(() => _service.GetAccountTransactionSummaryAsync(account.AccountNumber, new LedgerPageRequestDto()))!.Code, Is.EqualTo(ApplicationErrorCodes.AccountAccessDenied));
             Assert.That(account.Balance, Is.EqualTo(100m));
         });
         _accounts.Verify(a => a.UpdateBankAccountAsync(It.IsAny<BankAccount>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -130,7 +131,7 @@ public class TransactionServiceTests
             Assert.ThrowsAsync<NotFoundException>(() => _service.DepositAsync(new TransactionRequestDto { AccountNumber = "999", Amount = 1m }));
             Assert.ThrowsAsync<NotFoundException>(() => _service.WithdrawAsync(new TransactionRequestDto { AccountNumber = "999", Amount = 1m }));
             Assert.ThrowsAsync<NotFoundException>(() => _service.ApplyInterestAsync(new ApplyInterestRequestDto { AccountNumber = "999" }));
-            Assert.ThrowsAsync<NotFoundException>(() => _service.GetAccountTransactionSummaryAsync("999"));
+            Assert.ThrowsAsync<NotFoundException>(() => _service.GetAccountTransactionSummaryAsync("999", new LedgerPageRequestDto()));
         });
     }
 
@@ -145,32 +146,48 @@ public class TransactionServiceTests
     }
 
     [Test]
-    public async Task GetAccountTransactionSummaryAsync_ComputesTotalsAndStartingBalance()
+    public async Task GetAccountTransactionSummaryAsync_ComputesTotalsAndStartingBalanceFromTheWholeLedger()
     {
-        // Ledger: open 100, deposit 50, withdraw 30, interest 12 -> balance 132.
+        // Ledger: open 100, deposit 50, withdraw 30, deposit 0.01, withdraw 0.01 -> balance 120.
         var account = TestData.Account(initialDeposit: 100m);
         account.Deposit(50m, TestData.Now.AddDays(1));
         account.Withdraw(30m, TestData.Now.AddDays(2));
         account.Deposit(0.01m, TestData.Now.AddDays(3));
         account.Withdraw(0.01m, TestData.Now.AddDays(3));
-        var ledger = account.Transactions.ToList();
+        ArrangeLedger(account, page: 1, pageSize: 2);
 
-        // Simulate an account whose balance was reached through the ledger above.
-        _accounts.Setup(a => a.GetByAccountNumberAsync(account.AccountNumber, It.IsAny<CancellationToken>())).ReturnsAsync(account);
-        _transactions.Setup(t => t.GetAllByAccountIdAsync(account.BankAccountId, It.IsAny<CancellationToken>())).ReturnsAsync(ledger);
-
-        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber);
+        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber, new LedgerPageRequestDto { Page = 1, PageSize = 2 });
 
         Assert.Multiple(() =>
         {
             Assert.That(summary.AccountNumber, Is.EqualTo(account.AccountNumber));
-            Assert.That(summary.Transactions, Has.Count.EqualTo(5));
             Assert.That(summary.TotalDeposits, Is.EqualTo(150.01m));
             Assert.That(summary.TotalWithdrawals, Is.EqualTo(30.01m));
             Assert.That(summary.TotalInterest, Is.Zero);
             Assert.That(summary.FinalBalance, Is.EqualTo(120m));
             Assert.That(summary.StartingBalance, Is.Zero, "every balance change is in the ledger, so the ledger starts from zero");
+            Assert.That(summary.Transactions, Has.Count.EqualTo(2), "only the requested page is returned");
+            Assert.That(summary.Transactions.Select(t => t.Amount), Is.EqualTo(new List<decimal> { 100m, 50m }));
+            Assert.That(summary.Page, Is.EqualTo(new PageInfoDto(Number: 1, Size: 2, TotalItems: 5, TotalPages: 3)));
         });
+    }
+
+    [Test]
+    public async Task GetAccountTransactionSummaryAsync_PassesTheRequestedPageToTheRepository()
+    {
+        var account = TestData.Account(initialDeposit: 100m);
+        account.Deposit(1m, TestData.Now.AddDays(1));
+        account.Deposit(2m, TestData.Now.AddDays(2));
+        ArrangeLedger(account, page: 2, pageSize: 2);
+
+        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber, new LedgerPageRequestDto { Page = 2, PageSize = 2 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.Transactions.Select(t => t.Amount), Is.EqualTo(new List<decimal> { 2m }));
+            Assert.That(summary.Page, Is.EqualTo(new PageInfoDto(2, 2, 3, 2)));
+        });
+        _transactions.Verify(t => t.GetPageByAccountIdAsync(account.BankAccountId, 2, 2, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -178,14 +195,15 @@ public class TransactionServiceTests
     {
         // Accounts created before the opening deposit was recorded have a balance not covered by the ledger.
         var account = TestData.Account(initialDeposit: 100m);
-        var legacyLedger = account.Transactions.Skip(1).ToList(); // drop the opening deposit
         account.Deposit(20m, TestData.Now.AddDays(1));
-        legacyLedger = account.Transactions.Skip(1).ToList();
+        var legacyLedger = account.Transactions.Skip(1).ToList(); // drop the opening deposit
 
         _accounts.Setup(a => a.GetByAccountNumberAsync(account.AccountNumber, It.IsAny<CancellationToken>())).ReturnsAsync(account);
-        _transactions.Setup(t => t.GetAllByAccountIdAsync(account.BankAccountId, It.IsAny<CancellationToken>())).ReturnsAsync(legacyLedger);
+        _transactions.Setup(t => t.GetTotalsByAccountIdAsync(account.BankAccountId, It.IsAny<CancellationToken>())).ReturnsAsync(Totals(legacyLedger));
+        _transactions.Setup(t => t.GetPageByAccountIdAsync(account.BankAccountId, 1, LedgerPageRequestDto.DefaultPageSize, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LedgerPage(legacyLedger, 1, LedgerPageRequestDto.DefaultPageSize, legacyLedger.Count));
 
-        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber);
+        var summary = await _service.GetAccountTransactionSummaryAsync(account.AccountNumber, new LedgerPageRequestDto());
 
         Assert.Multiple(() =>
         {
@@ -194,4 +212,19 @@ public class TransactionServiceTests
             Assert.That(summary.FinalBalance, Is.EqualTo(120m));
         });
     }
+
+    /// <summary>Serves the account's in-memory ledger the way the repository would: totals over everything, one page of rows.</summary>
+    private void ArrangeLedger(BankAccount account, int page, int pageSize)
+    {
+        var ledger = account.Transactions.ToList();
+        var slice = ledger.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        _accounts.Setup(a => a.GetByAccountNumberAsync(account.AccountNumber, It.IsAny<CancellationToken>())).ReturnsAsync(account);
+        _transactions.Setup(t => t.GetTotalsByAccountIdAsync(account.BankAccountId, It.IsAny<CancellationToken>())).ReturnsAsync(Totals(ledger));
+        _transactions.Setup(t => t.GetPageByAccountIdAsync(account.BankAccountId, page, pageSize, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LedgerPage(slice, page, pageSize, ledger.Count));
+    }
+
+    private static LedgerTotals Totals(List<Transaction> ledger)
+        => new(ledger.Count, ledger.GroupBy(t => t.TransactionType).ToDictionary(g => g.Key, g => g.Sum(t => t.Amount)));
 }

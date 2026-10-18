@@ -50,29 +50,17 @@ internal sealed class TransactionService : ITransactionService
         return ApplyAsync(request.AccountNumber, account => account.ApplyInterest(Now()), cancellationToken);
     }
 
-    public async Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, CancellationToken cancellationToken = default)
+    public async Task<AccountTransactionSummaryDto> GetAccountTransactionSummaryAsync(string accountNumber, LedgerPageRequestDto page, CancellationToken cancellationToken = default)
     {
-        var account = await LoadAccountAsync(accountNumber, cancellationToken);
-        var transactions = await _transactionRepository.GetAllByAccountIdAsync(account.BankAccountId, cancellationToken);
+        ArgumentNullException.ThrowIfNull(page);
 
-        decimal deposits = 0, withdrawals = 0, interest = 0;
-        foreach (var transaction in transactions)
-        {
-            switch (transaction.TransactionType)
-            {
-                case TransactionType.Deposit:
-                    deposits += transaction.Amount;
-                    break;
-                case TransactionType.Withdrawal:
-                    withdrawals += transaction.Amount;
-                    break;
-                case TransactionType.Interest:
-                    interest += transaction.Amount;
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unknown transaction type '{transaction.TransactionType}'.");
-            }
-        }
+        var account = await LoadAccountAsync(accountNumber, cancellationToken);
+        var totals = await _transactionRepository.GetTotalsByAccountIdAsync(account.BankAccountId, cancellationToken);
+        var ledgerPage = await _transactionRepository.GetPageByAccountIdAsync(account.BankAccountId, page.Page, page.PageSize, cancellationToken);
+
+        var deposits = totals.Of(TransactionType.Deposit);
+        var withdrawals = totals.Of(TransactionType.Withdrawal);
+        var interest = totals.Of(TransactionType.Interest);
 
         return new AccountTransactionSummaryDto(
             account.AccountNumber,
@@ -81,7 +69,8 @@ internal sealed class TransactionService : ITransactionService
             TotalWithdrawals: withdrawals,
             TotalInterest: interest,
             FinalBalance: account.Balance,
-            Transactions: transactions.Select(t => t.ToSummaryDto()).ToList());
+            Transactions: ledgerPage.Transactions.Select(t => t.ToSummaryDto()).ToList(),
+            Page: new PageInfoDto(ledgerPage.Page, ledgerPage.PageSize, ledgerPage.TotalCount, ledgerPage.TotalPages));
     }
 
     /// <summary>

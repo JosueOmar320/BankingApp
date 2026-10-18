@@ -73,7 +73,7 @@ jobs:
             type=sha,format=long,prefix=sha-
           labels: |
             org.opencontainers.image.title=BankingApp
-            org.opencontainers.image.description=Banking API built with .NET 8, ASP.NET Core and EF Core on SQLite
+            org.opencontainers.image.description=Banking API built with .NET 10, ASP.NET Core and EF Core on SQLite
             org.opencontainers.image.licenses=MIT
 
       - name: Build and push the image

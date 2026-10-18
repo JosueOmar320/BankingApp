@@ -378,7 +378,7 @@ Jwt__SigningKey="$(openssl rand -base64 48)" ASPNETCORE_ENVIRONMENT=Production d
 ### Running with Docker
 
 The [`Dockerfile`](Dockerfile) is multi-stage: the SDK image restores, builds and publishes the API, and the final
-image is the ASP.NET Core 8 runtime running as the non-root `app` user on port `8080`. The database is kept in a
+image is the ASP.NET Core 10 runtime running as the non-root `app` user on port `8080`. The database is kept in a
 named volume, so data survives container restarts and rebuilds.
 
 ```bash

@@ -12,6 +12,9 @@ public static class ApiErrorCodes
     /// <summary>The request has no bearer token, or the token is expired or tampered with.</summary>
     public const string AuthenticationRequired = nameof(AuthenticationRequired);
 
+    /// <summary>The caller exceeded a rate limit; the <c>Retry-After</c> header says when to try again.</summary>
+    public const string TooManyRequests = nameof(TooManyRequests);
+
     /// <summary>The client disconnected before the request completed.</summary>
     public const string RequestCancelled = nameof(RequestCancelled);
 

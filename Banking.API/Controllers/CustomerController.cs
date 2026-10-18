@@ -1,7 +1,9 @@
+using Banking.API.RateLimiting;
 using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Banking.API.Controllers;
 
@@ -27,9 +29,12 @@ public class CustomerController : ControllerBase
     /// <response code="201">The customer was created.</response>
     /// <response code="400">The payload is invalid or violates a business rule.</response>
     /// <response code="409">A customer with the same document number already exists.</response>
+    /// <response code="429">Too many registrations from this address; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Authentication)]
     [ProducesResponseType(typeof(CustomerResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CustomerResponseDto>> CreateCustomer(CreateCustomerDto customer, CancellationToken cancellationToken)

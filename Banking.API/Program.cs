@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Banking.API.Auth;
 using Banking.API.Localization;
 using Banking.API.Middleware;
+using Banking.API.RateLimiting;
 using Banking.Application;
 using Banking.Application.Interfaces;
 using Banking.Infrastructure;
@@ -23,8 +24,9 @@ builder.Services
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
     .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = ValidationProblemResponse.Create);
 
-// Every error (validation, business rule, not found, unexpected) is an RFC 7807 problem response.
-builder.Services.AddProblemDetails();
+// Every error (validation, business rule, not found, unexpected) is an RFC 7807 problem response
+// that also carries the request's correlation id.
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = CorrelationIdMiddleware.AddToProblem);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // Error texts come from Resources/ErrorMessages(.es).resx in the culture chosen from Accept-Language:
@@ -120,7 +122,13 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddHealthChecks();
 
+// Fixed-window limits: login/registration per IP address, money operations per customer (see appsettings.json).
+builder.Services.AddBankingRateLimiting(builder.Configuration);
+
 var app = builder.Build();
+
+// The correlation id comes first so every log line, header and problem response of the request carries it.
+app.UseCorrelationId();
 
 // Localization runs before the exception handler so the culture it picks is still the current one
 // when the handler translates an exception thrown further down the pipeline.
@@ -137,6 +145,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// After authentication, so the money-operations policy can partition by customer.
+app.UseRateLimiter();
+
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
 

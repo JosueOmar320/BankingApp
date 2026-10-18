@@ -16,9 +16,9 @@ namespace Banking.Tests.API.Integration;
 public abstract class ApiTestBase
 {
     /// <summary>Password of every customer registered through <see cref="CreateCustomerAsync"/>.</summary>
-    protected const string DefaultPassword = "Secret123!";
+    internal const string DefaultPassword = "Secret123!";
 
-    protected static readonly JsonSerializerOptions Json = CreateJsonOptions();
+    internal static readonly JsonSerializerOptions Json = CreateJsonOptions();
 
     private BankingApiFactory _factory = null!;
 

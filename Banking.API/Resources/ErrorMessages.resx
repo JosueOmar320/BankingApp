@@ -139,4 +139,10 @@
   <data name="PasswordTooLong" xml:space="preserve">
     <value>Password cannot be longer than {0} characters.</value>
   </data>
+  <data name="Title.TooManyRequests" xml:space="preserve">
+    <value>Too many requests</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>The request limit was exceeded. Wait for the number of seconds in the Retry-After header and try again.</value>
+  </data>
 </root>

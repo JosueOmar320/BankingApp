@@ -30,6 +30,9 @@ public static class ProblemTitles
     /// <summary>403: the resource belongs to another customer.</summary>
     public const string Forbidden = "Title.Forbidden";
 
+    /// <summary>429: the caller exceeded a rate limit.</summary>
+    public const string TooManyRequests = "Title.TooManyRequests";
+
     /// <summary>499: the client went away.</summary>
     public const string RequestCancelled = "Title.RequestCancelled";
 

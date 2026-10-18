@@ -6,6 +6,8 @@
 ![Tests](https://img.shields.io/badge/tests-NUnit_%2B_Moq-25A162)
 ![Swagger](https://img.shields.io/badge/docs-Swagger-85EA2D?logo=swagger&logoColor=black)
 [![CI](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml/badge.svg)](https://github.com/JosueOmar320/BankingApp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/JosueOmar320/BankingApp?sort=semver)](https://github.com/JosueOmar320/BankingApp/releases)
+[![Container image](https://img.shields.io/badge/ghcr.io-josueomar320%2Fbankingapp-2496ED?logo=docker&logoColor=white)](https://github.com/JosueOmar320/BankingApp/pkgs/container/bankingapp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 A **Banking API** built with **.NET 10 (LTS)** and **ASP.NET Core Web API**. It manages customers, bank accounts and a
@@ -46,6 +48,7 @@ No database file is checked in: the SQLite database is created and migrated auto
 - Unit tests (domain, services), repository tests on real SQLite and HTTP integration tests with `WebApplicationFactory`
 - GitHub Actions CI: format check, build with warnings as errors, tests and NuGet vulnerability audit
 - Multi-stage `Dockerfile` (non-root runtime image) and `docker-compose.yml` with a persistent volume for the database
+- Versioned releases: a `v*.*.*` tag publishes the image to GitHub Container Registry and creates the GitHub Release from the [CHANGELOG](CHANGELOG.md)
 
 ---
 
@@ -453,7 +456,7 @@ Jwt__SigningKey="$(openssl rand -base64 48)" ASPNETCORE_ENVIRONMENT=Production d
 ### Running with Docker
 
 The [`Dockerfile`](Dockerfile) is multi-stage: the SDK image restores, builds and publishes the API, and the final
-image is the ASP.NET Core 8 runtime running as the non-root `app` user on port `8080`. The database is kept in a
+image is the ASP.NET Core 10 runtime running as the non-root `app` user on port `8080`. The database is kept in a
 named volume, so data survives container restarts and rebuilds.
 
 ```bash
@@ -481,6 +484,24 @@ empty database again:
 ```bash
 docker compose down -v
 ```
+
+#### Running the published image
+
+Every release is also published to GitHub Container Registry as
+[`ghcr.io/josueomar320/bankingapp`](https://github.com/JosueOmar320/BankingApp/pkgs/container/bankingapp), tagged with
+the version (`1.0.0`), `latest` and the commit (`sha-<commit>`). The image runs in `Production`, so it needs its own
+JWT signing key and keeps the database in `/data`:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e Jwt__SigningKey="$(openssl rand -base64 48)" \
+  -v banking-data:/data \
+  ghcr.io/josueomar320/bankingapp:1.0.0
+```
+
+Then check `http://localhost:8080/health`. Swagger and the sample data are off outside `Development`; to try the
+API from the browser with the two sample accounts, add `-e ASPNETCORE_ENVIRONMENT=Development` (the development
+signing key ships with the image and is accepted only in that environment) and open `http://localhost:8080/swagger`.
 
 ### Configuration
 
@@ -532,6 +553,25 @@ dotnet test --logger "console;verbosity=detailed"
 build with `TreatWarningsAsErrors`, the full test suite and a NuGet vulnerability audit.
 [Dependabot](.github/dependabot.yml) opens a weekly pull request for NuGet packages and GitHub Actions, grouping minor
 and patch updates together.
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org) and every change is recorded in the
+[CHANGELOG](CHANGELOG.md) ([Keep a Changelog](https://keepachangelog.com) format). The version lives in one place,
+`<Version>` in [`Directory.Build.props`](Directory.Build.props), so the assemblies carry it and Swagger shows it in
+the document title.
+
+To publish a release: move the `[Unreleased]` entries of the changelog under a new `[x.y.z]` heading dated today,
+set the same version in `Directory.Build.props`, merge, and push the tag:
+
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then checks that the tag matches the version,
+builds the Docker image, pushes it to `ghcr.io/josueomar320/bankingapp` (`X.Y.Z`, `latest`, `sha-<commit>`) and
+creates the [GitHub Release](https://github.com/JosueOmar320/BankingApp/releases) with that version's changelog
+section as its notes.
 
 ## License
 

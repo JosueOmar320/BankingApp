@@ -1,7 +1,9 @@
+using Banking.API.RateLimiting;
 using Banking.Application.Dtos;
 using Banking.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Banking.API.Controllers;
 
@@ -27,11 +29,14 @@ public class TransactionController : ControllerBase
     /// <response code="400">The payload is invalid or the amount violates a business rule.</response>
     /// <response code="404">The account does not exist.</response>
     /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Deposit")]
+    [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> Deposit(TransactionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.DepositAsync(request, cancellationToken));
 
@@ -42,11 +47,14 @@ public class TransactionController : ControllerBase
     /// <response code="400">The payload is invalid, the amount violates a business rule or funds are insufficient.</response>
     /// <response code="404">The account does not exist.</response>
     /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Withdrawal")]
+    [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> Withdrawal(TransactionRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.WithdrawAsync(request, cancellationToken));
 
@@ -57,11 +65,14 @@ public class TransactionController : ControllerBase
     /// <response code="400">The resulting interest is zero.</response>
     /// <response code="404">The account does not exist.</response>
     /// <response code="409">The account was modified concurrently; retry the request.</response>
+    /// <response code="429">Too many operations in a short time; wait for the <c>Retry-After</c> seconds.</response>
     [HttpPost("Apply-Interest")]
+    [EnableRateLimiting(RateLimitPolicies.MoneyOperations)]
     [ProducesResponseType(typeof(TransactionResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<TransactionResponseDto>> ApplyInterest(ApplyInterestRequestDto request, CancellationToken cancellationToken)
         => Ok(await _transactionService.ApplyInterestAsync(request, cancellationToken));
 

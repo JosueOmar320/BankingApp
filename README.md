@@ -191,9 +191,12 @@ All errors use `application/problem+json`:
 | `403`  | The account or customer belongs to another customer                                    | `AccountAccessDenied`, `CustomerAccessDenied`                                            |
 | `404`  | Customer or account does not exist                                                     | `CustomerNotFound`, `AccountNotFound`                                                    |
 | `409`  | Duplicate document number, or the account changed concurrently (retry the request)    | `DuplicateDocumentNumber`, `ConcurrencyConflict`, `AccountNumberTaken`                   |
+| `429`  | Rate limit exceeded (`Retry-After` header says when to retry)                           | `TooManyRequests`                                                                        |
 | `500`  | Unexpected error (details are logged, never returned)                                  | `UnexpectedError`                                                                        |
 
 `code` is stable across languages and releases; `title` and `detail` are human-readable and may change.
+
+Every problem response also carries the request's `correlationId` (see [Correlation id and rate limiting](#correlation-id-and-rate-limiting)).
 
 ### Localization
 
@@ -251,6 +254,37 @@ Texts live in two pairs of `.resx` files: [`Banking.API/Resources/ErrorMessages.
 (+ `.es.resx`) for the DataAnnotations messages of the request DTOs. A test checks that every key the code uses exists
 in both languages with the same placeholders, so adding a language means adding one `.resx` per pair and the culture
 to `SupportedCultures`.
+
+### Correlation id and rate limiting
+
+Every response carries an `X-Correlation-Id` header: the one the client sent (1 to 64 letters, digits, `.`, `-` or `_`)
+or a generated one. The same id wraps every log line of the request (`CorrelationId` scope, enabled through
+`Logging:Console:IncludeScopes`) and is returned as `correlationId` in problem responses, so a client can quote an error
+and the server logs can be searched for it:
+
+```bash
+curl -s -D - http://localhost:5200/api/BankAccount/0000000000 -H "X-Correlation-Id: support-ticket-1234" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+```text
+HTTP/1.1 404 Not Found
+X-Correlation-Id: support-ticket-1234
+Content-Type: application/problem+json
+
+{ "title": "Resource not found", "status": 404, "code": "AccountNotFound", "correlationId": "support-ticket-1234", ... }
+```
+
+Two fixed-window rate limits protect the API, both configurable under `RateLimiting`:
+
+| Policy             | Applies to                                             | Partition              | Default           |
+| ------------------ | ------------------------------------------------------ | ---------------------- | ----------------- |
+| `Authentication`   | `POST /api/Auth/login`, `POST /api/Customer`           | client IP address      | 10 per 60 seconds |
+| `MoneyOperations`  | `Deposit`, `Withdrawal`, `Apply-Interest`              | authenticated customer | 30 per 60 seconds |
+
+A rejected request gets a `429` problem response (`code: "TooManyRequests"`, translated like every other error) and a
+`Retry-After` header with the seconds to wait. Reads are not limited. Behind a reverse proxy, enable forwarded headers
+so the address partition sees the real client.
 
 ### Sample data (Development only)
 
@@ -349,6 +383,9 @@ docker compose down -v
 | ------------------------------------ | ---------------------------------------------------- | -------------------------------------------- |
 | `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root. The file is git-ignored and created on first run |
 | `Database:SeedSampleData`            | `false` (`true` in Development)                      | Insert the sample accounts when the DB is empty |
+| `RateLimiting:Authentication:PermitLimit` / `WindowSeconds` | `10` / `60`                   | Login and registration attempts per IP address and window |
+| `RateLimiting:MoneyOperations:PermitLimit` / `WindowSeconds` | `30` / `60`                  | Deposits, withdrawals and interest per customer and window |
+| `Logging:Console:IncludeScopes`      | `true`                                               | Print the `CorrelationId` scope on every log line |
 | `Jwt:SigningKey`                     | development-only value in `appsettings.Development.json`; **required elsewhere** (`Jwt__SigningKey` environment variable, user secrets…) | HS256 secret, at least 32 characters. Start-up fails if it is missing or too short, and the committed development key (marked `DEVELOPMENT-ONLY`) is rejected outside `Development` |
 | `Jwt:Issuer` / `Jwt:Audience`        | `BankingApp` / `BankingApp.API`                      | `iss` / `aud` claims; tokens with other values are rejected |
 | `Jwt:AccessTokenLifetimeMinutes`     | `60`                                                 | Token lifetime (1 minute to 24 hours)        |

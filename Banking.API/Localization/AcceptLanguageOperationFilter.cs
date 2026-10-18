@@ -1,5 +1,5 @@
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
+using System.Text.Json.Nodes;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Banking.API.Localization;
@@ -24,9 +24,9 @@ public sealed class AcceptLanguageOperationFilter : IOperationFilter
                 + $"Default: {SupportedCultures.Default}.",
             Schema = new OpenApiSchema
             {
-                Type = "string",
-                Default = new OpenApiString(SupportedCultures.Default),
-                Enum = SupportedCultures.AcceptLanguageExamples.Select(IOpenApiAny (value) => new OpenApiString(value)).ToList(),
+                Type = JsonSchemaType.String,
+                Default = JsonValue.Create(SupportedCultures.Default),
+                Enum = SupportedCultures.AcceptLanguageExamples.Select(JsonNode (value) => JsonValue.Create(value)).ToList(),
             },
         });
     }

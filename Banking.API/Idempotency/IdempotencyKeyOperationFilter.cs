@@ -1,7 +1,7 @@
+using System.Text.Json.Nodes;
 using Banking.Infrastructure.Idempotency;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Banking.API.Idempotency;
@@ -32,18 +32,22 @@ public sealed class IdempotencyKeyOperationFilter : IOperationFilter
                 + "request is still running answers 409. Keys are kept per customer for 24 hours by default.",
             Schema = new OpenApiSchema
             {
-                Type = "string",
+                Type = JsonSchemaType.String,
                 MinLength = 1,
                 MaxLength = IdempotencyKey.MaxKeyLength,
-                Example = new OpenApiString("8f0c6a1e-5b2d-4c3e-9f7a-1d2e3f4a5b6c"),
+                Example = JsonValue.Create("8f0c6a1e-5b2d-4c3e-9f7a-1d2e3f4a5b6c"),
             },
         });
 
         var problem = context.SchemaGenerator.GenerateSchema(typeof(ProblemDetails), context.SchemaRepository);
+        operation.Responses ??= [];
         operation.Responses.TryAdd("422", new OpenApiResponse
         {
             Description = "The Idempotency-Key was already used for a different request.",
-            Content = { ["application/problem+json"] = new OpenApiMediaType { Schema = problem } },
+            Content = new Dictionary<string, OpenApiMediaType>
+            {
+                ["application/problem+json"] = new OpenApiMediaType { Schema = problem },
+            },
         });
     }
 }

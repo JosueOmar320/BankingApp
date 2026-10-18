@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Serialization;
+using Banking.API;
 using Banking.API.Auth;
 using Banking.API.Localization;
 using Banking.API.Middleware;
@@ -90,7 +91,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Banking API",
-        Version = "v1",
+        Version = ApiVersion.Current,
         Description = "Customers, bank accounts and ledger operations (deposits, withdrawals, interest). "
             + "Register with POST /api/Customer, log in with POST /api/Auth/login and press Authorize to use the token: "
             + "every other operation is restricted to the authenticated customer's own data. "

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Banking.API;
 using Banking.API.Auth;
 using Banking.API.Localization;
 
@@ -26,6 +27,23 @@ public class SwaggerDocumentTests
     {
         _client.Dispose();
         _factory.Dispose();
+    }
+
+    [Test]
+    public async Task SwaggerJson_ReportsTheAssemblyVersion()
+    {
+        using var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var info = document.RootElement.GetProperty("info");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ApiVersion.Current, Does.Match(@"^\d+\.\d+\.\d+$"), "the version comes from <Version> in Directory.Build.props");
+            Assert.That(info.GetProperty("title").GetString(), Is.EqualTo("Banking API"));
+            Assert.That(info.GetProperty("version").GetString(), Is.EqualTo(ApiVersion.Current));
+        });
     }
 
     [Test]

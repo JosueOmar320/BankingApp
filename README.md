@@ -151,7 +151,7 @@ two accounts are created so you can try the API immediately:
 | `ConnectionStrings:DefaultConnection` | `Data Source=../Banking.Infrastructure/Data/banking.db` | SQLite file; relative paths resolve against the API content root |
 | `Database:SeedSampleData`            | `false` (`true` in Development)                      | Insert the sample accounts when the DB is empty |
 
-Pending migrations are applied automatically on start-up. To add a migration after changing the model:
+Pending migrations are applied automatically on start-up. If a previous run was killed while migrating (for example stopped from the IDE), the lock row EF Core leaves in `__EFMigrationsLock` is removed automatically once it is older than two minutes, so the API never hangs on start-up with the browser showing `ERR_CONNECTION_REFUSED`. To add a migration after changing the model:
 
 ```bash
 dotnet ef migrations add <Name> --project Banking.Infrastructure --startup-project Banking.API
